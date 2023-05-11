@@ -340,6 +340,8 @@ func (k Keeper) EstimateGas(c context.Context, req *types.EthCallRequest) (*type
 			msg.IsFake(),
 		)
 
+		ctx, _ := ctx.CacheContext()
+
 		// pass false to not commit StateDB
 		rsp, err = k.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig)
 		if err != nil {
