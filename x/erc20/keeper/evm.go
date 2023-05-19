@@ -5,6 +5,7 @@ package keeper
 
 import (
 	"encoding/json"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"math/big"
 
 	errorsmod "cosmossdk.io/errors"
@@ -22,6 +23,8 @@ import (
 	"github.com/evmos/evmos/v13/contracts"
 	"github.com/evmos/evmos/v13/x/erc20/types"
 )
+
+const EvmContextKey = "evm"
 
 // DeployERC20Contract creates and deploys an ERC20 contract on the EVM with the
 // erc20 module account as owner.
@@ -173,6 +176,29 @@ func (k Keeper) CallEVMWithData(
 	nonce, err := k.accountKeeper.GetSequence(ctx, from.Bytes())
 	if err != nil {
 		return nil, err
+	}
+
+	if evm, ok := ctx.Value(EvmContextKey).(*vm.EVM); ok {
+		const gasLimit = 1000000
+
+		var ret []byte
+
+		if commit {
+			ret, _, err = evm.Call(vm.AccountRef(types.ModuleAddress), *contract, data, gasLimit, big.NewInt(0))
+			if err != nil {
+				return nil, errorsmod.Wrap(evmtypes.ErrVMExecution, err.Error())
+			}
+		} else {
+			ret, _, err = evm.StaticCall(vm.AccountRef(types.ModuleAddress), *contract, data, gasLimit)
+			if err != nil {
+				return nil, errorsmod.Wrap(evmtypes.ErrVMExecution, err.Error())
+			}
+		}
+
+		return &evmtypes.MsgEthereumTxResponse{
+			Ret:     ret,
+			GasUsed: gasLimit,
+		}, nil
 	}
 
 	gasCap := config.DefaultGasCap
