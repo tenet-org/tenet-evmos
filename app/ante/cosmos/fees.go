@@ -29,6 +29,7 @@ type DeductFeeDecorator struct {
 	feegrantKeeper     authante.FeegrantKeeper
 	stakingKeeper      anteutils.StakingKeeper
 	txFeeChecker       anteutils.TxFeeChecker
+	fundRetriever      func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec)
 }
 
 // NewDeductFeeDecorator returns a new DeductFeeDecorator.
@@ -39,6 +40,7 @@ func NewDeductFeeDecorator(
 	fk authante.FeegrantKeeper,
 	sk anteutils.StakingKeeper,
 	tfc anteutils.TxFeeChecker,
+	fundRetriever func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec),
 ) DeductFeeDecorator {
 	if tfc == nil {
 		tfc = checkTxFeeWithValidatorMinGasPrices
@@ -51,6 +53,7 @@ func NewDeductFeeDecorator(
 		feegrantKeeper:     fk,
 		stakingKeeper:      sk,
 		txFeeChecker:       tfc,
+		fundRetriever:      fundRetriever,
 	}
 }
 
@@ -128,7 +131,7 @@ func (dfd DeductFeeDecorator) deductFee(ctx sdk.Context, sdkTx sdk.Tx, fees sdk.
 	}
 
 	// deduct the fees
-	if err := deductFeesFromBalanceOrUnclaimedStakingRewards(ctx, dfd, deductFeesFromAcc, fees); err != nil {
+	if err := deductFeesFromBalanceOrUnclaimedStakingRewards(ctx, dfd, deductFeesFromAcc, fees, dfd.fundRetriever); err != nil {
 		return fmt.Errorf("insufficient funds and failed to claim sufficient staking rewards to pay for fees: %w", err)
 	}
 
@@ -147,7 +150,7 @@ func (dfd DeductFeeDecorator) deductFee(ctx sdk.Context, sdkTx sdk.Tx, fees sdk.
 // deductFeesFromBalanceOrUnclaimedStakingRewards tries to deduct the fees from the account balance.
 // If the account balance is not enough, it tries to claim enough staking rewards to cover the fees.
 func deductFeesFromBalanceOrUnclaimedStakingRewards(
-	ctx sdk.Context, dfd DeductFeeDecorator, deductFeesFromAcc authtypes.AccountI, fees sdk.Coins,
+	ctx sdk.Context, dfd DeductFeeDecorator, deductFeesFromAcc authtypes.AccountI, fees sdk.Coins, fundRetriever func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec),
 ) error {
 	if err := anteutils.ClaimStakingRewardsIfNecessary(
 		ctx, dfd.bankKeeper, dfd.distributionKeeper, dfd.stakingKeeper, deductFeesFromAcc.GetAddress(), fees,
@@ -155,7 +158,7 @@ func deductFeesFromBalanceOrUnclaimedStakingRewards(
 		return err
 	}
 
-	return authante.DeductFees(dfd.bankKeeper, ctx, deductFeesFromAcc, fees)
+	return anteutils.DeductFees(dfd.bankKeeper, fundRetriever, ctx, deductFeesFromAcc, fees)
 }
 
 // checkTxFeeWithValidatorMinGasPrices implements the default fee logic, where the minimum price per

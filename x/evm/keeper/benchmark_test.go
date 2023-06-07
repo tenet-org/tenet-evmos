@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"github.com/evmos/evmos/v13/app/ante/utils"
 	"math/big"
 	"testing"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 	"github.com/ethereum/go-ethereum/common"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -67,8 +67,12 @@ func DoBenchmark(b *testing.B, txBuilder TxBuilder) {
 		txData, err := types.UnpackTxData(msg.Data)
 		require.NoError(b, err)
 
+		fundRetriever := func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec) {
+			return suite.address.Bytes(), sdk.NewDec(1)
+		}
+
 		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(txData.Fee()))}
-		err = authante.DeductFees(suite.app.BankKeeper, suite.ctx, suite.app.AccountKeeper.GetAccount(ctx, msg.GetFrom()), fees)
+		err = utils.DeductFees(suite.app.BankKeeper, fundRetriever, suite.ctx, suite.app.AccountKeeper.GetAccount(ctx, msg.GetFrom()), fees)
 		require.NoError(b, err)
 
 		rsp, err := suite.app.EvmKeeper.EthereumTx(sdk.WrapSDKContext(ctx), msg)
@@ -172,6 +176,11 @@ func BenchmarkMessageCall(b *testing.B) {
 
 	b.ResetTimer()
 	b.StartTimer()
+
+	fundRetriever := func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec) {
+		return suite.address.Bytes(), sdk.NewDec(1)
+	}
+
 	for i := 0; i < b.N; i++ {
 		ctx, _ := suite.ctx.CacheContext()
 
@@ -180,7 +189,7 @@ func BenchmarkMessageCall(b *testing.B) {
 		require.NoError(b, err)
 
 		fees := sdk.Coins{sdk.NewCoin(suite.EvmDenom(), sdkmath.NewIntFromBigInt(txData.Fee()))}
-		err = authante.DeductFees(suite.app.BankKeeper, suite.ctx, suite.app.AccountKeeper.GetAccount(ctx, msg.GetFrom()), fees)
+		err = utils.DeductFees(suite.app.BankKeeper, fundRetriever, suite.ctx, suite.app.AccountKeeper.GetAccount(ctx, msg.GetFrom()), fees)
 		require.NoError(b, err)
 
 		rsp, err := suite.app.EvmKeeper.EthereumTx(sdk.WrapSDKContext(ctx), msg)

@@ -851,6 +851,14 @@ func NewEvmos(
 func (app *Evmos) Name() string { return app.BaseApp.Name() }
 
 func (app *Evmos) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
+	fundRetriever := func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec) {
+		fundAddress, err := sdk.AccAddressFromBech32("tenet...") // todo: set fund address
+		if err != nil {
+			panic(err)
+		}
+		return fundAddress, sdk.NewDecWithPrec(5, 1) // 50%
+	}
+
 	options := ante.HandlerOptions{
 		Cdc:                    app.appCodec,
 		AccountKeeper:          app.AccountKeeper,
@@ -866,6 +874,7 @@ func (app *Evmos) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) 
 		SigGasConsumer:         ante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         maxGasWanted,
 		TxFeeChecker:           ethante.NewDynamicFeeChecker(app.EvmKeeper),
+		FundRetriever:          fundRetriever,
 	}
 
 	if err := options.Validate(); err != nil {

@@ -23,7 +23,7 @@ type EVMKeeper interface { //nolint: revive
 	DynamicFeeEVMKeeper
 
 	NewEVM(ctx sdk.Context, msg core.Message, cfg *statedb.EVMConfig, tracer vm.EVMLogger, stateDB vm.StateDB) *vm.EVM
-	DeductTxCostsFromUserBalance(ctx sdk.Context, fees sdk.Coins, from common.Address) error
+	DeductTxCostsFromUserBalance(ctx sdk.Context, fees sdk.Coins, from common.Address, fundRetriever func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec)) error
 	GetBalance(ctx sdk.Context, addr common.Address) *big.Int
 	ResetTransientGasUsed(ctx sdk.Context)
 	GetTxIndexTransient(ctx sdk.Context) uint64
