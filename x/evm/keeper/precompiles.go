@@ -11,6 +11,8 @@ import (
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	channelkeeper "github.com/cosmos/ibc-go/v6/modules/core/04-channel/keeper"
+	transferkeeper "github.com/evmos/evmos/v13/x/ibc/transfer/keeper"
 )
 
 // AvailablePrecompiles returns the list of all available precompiled contracts.
@@ -19,6 +21,8 @@ func AvailablePrecompiles(
 	stakingKeeper stakingkeeper.Keeper,
 	distributionKeeper distributionkeeper.Keeper,
 	authzKeeper authzkeeper.Keeper,
+	transferKeeper transferkeeper.Keeper,
+	channelKeeper channelkeeper.Keeper,
 ) map[common.Address]vm.PrecompiledContract {
 	// Clone the mapping from the latest EVM fork.
 	precompiles := maps.Clone(vm.PrecompiledContractsBerlin)
