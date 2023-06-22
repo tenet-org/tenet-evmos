@@ -184,12 +184,12 @@ func (k Keeper) CallEVMWithData(
 		var ret []byte
 
 		if commit {
-			ret, _, err = evm.Call(vm.AccountRef(types.ModuleAddress), *contract, data, gasLimit, big.NewInt(0))
+			ret, _, err = evm.Call(vm.AccountRef(from), *contract, data, gasLimit, big.NewInt(0))
 			if err != nil {
 				return nil, errorsmod.Wrap(evmtypes.ErrVMExecution, err.Error())
 			}
 		} else {
-			ret, _, err = evm.StaticCall(vm.AccountRef(types.ModuleAddress), *contract, data, gasLimit)
+			ret, _, err = evm.StaticCall(vm.AccountRef(from), *contract, data, gasLimit)
 			if err != nil {
 				return nil, errorsmod.Wrap(evmtypes.ErrVMExecution, err.Error())
 			}
