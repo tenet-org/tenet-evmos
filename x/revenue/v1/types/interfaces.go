@@ -12,8 +12,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/evmos/evmos/v13/x/evm/statedb"
-	evmtypes "github.com/evmos/evmos/v13/x/evm/types"
+	"github.com/evmos/evmos/v14/x/evm/statedb"
+	evmtypes "github.com/evmos/evmos/v14/x/evm/types"
 )
 
 // AccountKeeper defines the expected interface needed to retrieve account info.
@@ -28,6 +28,11 @@ type BankKeeper interface {
 	BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
 	GetBalance(ctx sdk.Context, addr sdk.AccAddress, denom string) sdk.Coin
 	GetAllBalances(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
+}
+
+// DistributionKeeper defines the expected interface needed to send funds to the community pool.
+type DistributionKeeper interface {
+	FundCommunityPool(ctx sdk.Context, amount sdk.Coins, sender sdk.AccAddress) error
 }
 
 // EVMKeeper defines the expected EVM keeper interface used on erc20

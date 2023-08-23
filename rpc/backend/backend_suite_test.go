@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	dbm "github.com/tendermint/tm-db"
+	dbm "github.com/cometbft/cometbft-db"
 
+	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -16,17 +17,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/suite"
-	tmrpctypes "github.com/tendermint/tendermint/rpc/core/types"
 
-	"github.com/evmos/evmos/v13/app"
-	"github.com/evmos/evmos/v13/crypto/hd"
-	"github.com/evmos/evmos/v13/encoding"
-	"github.com/evmos/evmos/v13/indexer"
-	"github.com/evmos/evmos/v13/rpc/backend/mocks"
-	rpctypes "github.com/evmos/evmos/v13/rpc/types"
-	utiltx "github.com/evmos/evmos/v13/testutil/tx"
-	"github.com/evmos/evmos/v13/utils"
-	evmtypes "github.com/evmos/evmos/v13/x/evm/types"
+	"github.com/evmos/evmos/v14/app"
+	"github.com/evmos/evmos/v14/crypto/hd"
+	"github.com/evmos/evmos/v14/encoding"
+	"github.com/evmos/evmos/v14/indexer"
+	"github.com/evmos/evmos/v14/rpc/backend/mocks"
+	rpctypes "github.com/evmos/evmos/v14/rpc/types"
+	utiltx "github.com/evmos/evmos/v14/testutil/tx"
+	"github.com/evmos/evmos/v14/utils"
+	evmtypes "github.com/evmos/evmos/v14/x/evm/types"
 )
 
 type BackendTestSuite struct {
@@ -83,6 +83,8 @@ func (suite *BackendTestSuite) SetupTest() {
 	idxer := indexer.NewKVIndexer(dbm.NewMemDB(), ctx.Logger, clientCtx)
 
 	suite.backend = NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, idxer)
+	suite.backend.cfg.JSONRPC.GasCap = 0
+	suite.backend.cfg.JSONRPC.EVMTimeout = 0
 	suite.backend.queryClient.QueryClient = mocks.NewEVMQueryClient(suite.T())
 	suite.backend.clientCtx.Client = mocks.NewClient(suite.T())
 	suite.backend.queryClient.FeeMarket = mocks.NewFeeMarketQueryClient(suite.T())

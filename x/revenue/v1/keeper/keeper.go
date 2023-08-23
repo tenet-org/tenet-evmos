@@ -6,12 +6,12 @@ package keeper
 import (
 	"fmt"
 
+	"github.com/cometbft/cometbft/libs/log"
 	"github.com/cosmos/cosmos-sdk/codec"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/tendermint/tendermint/libs/log"
 
-	"github.com/evmos/evmos/v13/x/revenue/v1/types"
+	"github.com/evmos/evmos/v14/x/revenue/v1/types"
 )
 
 // Keeper of this module maintains collections of revenues for contracts
@@ -20,10 +20,12 @@ type Keeper struct {
 	storeKey storetypes.StoreKey
 	cdc      codec.BinaryCodec
 	// the address capable of executing a MsgUpdateParams message. Typically, this should be the x/gov module account.
-	authority        sdk.AccAddress
-	bankKeeper       types.BankKeeper
-	evmKeeper        types.EVMKeeper
-	feeCollectorName string
+	authority          sdk.AccAddress
+	bankKeeper         types.BankKeeper
+	evmKeeper          types.EVMKeeper
+	accountKeeper      types.AccountKeeper
+	distributionKeeper types.DistributionKeeper
+	feeCollectorName   string
 }
 
 // NewKeeper creates new instances of the fees Keeper
@@ -32,16 +34,20 @@ func NewKeeper(
 	cdc codec.BinaryCodec,
 	authority sdk.AccAddress,
 	bk types.BankKeeper,
+	dk types.DistributionKeeper,
+	ak types.AccountKeeper,
 	evmKeeper types.EVMKeeper,
 	feeCollector string,
 ) Keeper {
 	return Keeper{
-		storeKey:         storeKey,
-		cdc:              cdc,
-		authority:        authority,
-		bankKeeper:       bk,
-		evmKeeper:        evmKeeper,
-		feeCollectorName: feeCollector,
+		storeKey:           storeKey,
+		cdc:                cdc,
+		authority:          authority,
+		bankKeeper:         bk,
+		distributionKeeper: dk,
+		evmKeeper:          evmKeeper,
+		accountKeeper:      ak,
+		feeCollectorName:   feeCollector,
 	}
 }
 

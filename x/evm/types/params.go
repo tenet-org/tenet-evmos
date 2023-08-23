@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/evmos/evmos/v13/types"
-	"github.com/evmos/evmos/v13/utils"
+	"github.com/evmos/evmos/v14/types"
+	"github.com/evmos/evmos/v14/utils"
 )
 
 var (
@@ -29,6 +29,7 @@ var (
 		"0x0000000000000000000000000000000000000800", // Staking precompile
 		"0x0000000000000000000000000000000000000801", // Distribution precompile
 		"0x0000000000000000000000000000000000000802", // ICS20 transfer precompile
+		"0x0000000000000000000000000000000000000803", // Vesting precompile
 	}
 )
 

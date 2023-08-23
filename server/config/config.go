@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/tendermint/tendermint/libs/strings"
+	"github.com/cometbft/cometbft/libs/strings"
 
 	errorsmod "cosmossdk.io/errors"
 	"github.com/cosmos/cosmos-sdk/server/config"
@@ -18,6 +18,24 @@ import (
 )
 
 const (
+	// DefaultAPIEnable is the default value for the parameter that defines if the cosmos REST API server is enabled
+	DefaultAPIEnable = false
+
+	// DefaultGRPCEnable is the default value for the parameter that defines if the gRPC server is enabled
+	DefaultGRPCEnable = false
+
+	// DefaultGRPCWebEnable is the default value for the parameter that defines if the gRPC web server is enabled
+	DefaultGRPCWebEnable = false
+
+	// DefaultJSONRPCEnable is the default value for the parameter that defines if the JSON-RPC server is enabled
+	DefaultJSONRPCEnable = false
+
+	// DefaultRosettaEnable is the default value for the parameter that defines if the Rosetta API server is enabled
+	DefaultRosettaEnable = false
+
+	// DefaultTelemetryEnable is the default value for the parameter that defines if the telemetry is enabled
+	DefaultTelemetryEnable = false
+
 	// DefaultGRPCAddress is the default address the gRPC server binds to.
 	DefaultGRPCAddress = "0.0.0.0:9900"
 
@@ -71,6 +89,9 @@ const (
 
 	// DefaultMaxOpenConnections represents the amount of open connections (unlimited = 0)
 	DefaultMaxOpenConnections = 0
+
+	// DefaultGasAdjustment value to use as default in gas-adjustment flag
+	DefaultGasAdjustment = 1.2
 )
 
 var evmTracers = []string{"json", "markdown", "struct", "access_list"}
@@ -78,7 +99,7 @@ var evmTracers = []string{"json", "markdown", "struct", "access_list"}
 // Config defines the server's top level configuration. It includes the default app config
 // from the SDK as well as the EVM configuration to enable the JSON-RPC APIs.
 type Config struct {
-	config.Config
+	config.Config `mapstructure:",squash"`
 
 	EVM     EVMConfig     `mapstructure:"evm"`
 	JSONRPC JSONRPCConfig `mapstructure:"json-rpc"`
@@ -149,7 +170,7 @@ type TLSConfig struct {
 func AppConfig(denom string) (string, interface{}) {
 	// Optionally allow the chain developer to overwrite the SDK's default
 	// server config.
-	srvCfg := config.DefaultConfig()
+	customAppConfig := DefaultConfig()
 
 	// The SDK's default minimum gas price is set to "" (empty value) inside
 	// app.toml. If left empty by validators, the node will halt on startup.
@@ -164,25 +185,25 @@ func AppConfig(denom string) (string, interface{}) {
 	//
 	// In evmos, we set the min gas prices to 0.
 	if denom != "" {
-		srvCfg.MinGasPrices = "0" + denom
-	}
-
-	customAppConfig := Config{
-		Config:  *srvCfg,
-		EVM:     *DefaultEVMConfig(),
-		JSONRPC: *DefaultJSONRPCConfig(),
-		TLS:     *DefaultTLSConfig(),
+		customAppConfig.Config.MinGasPrices = "0" + denom
 	}
 
 	customAppTemplate := config.DefaultConfigTemplate + DefaultConfigTemplate
 
-	return customAppTemplate, customAppConfig
+	return customAppTemplate, *customAppConfig
 }
 
 // DefaultConfig returns server's default configuration.
 func DefaultConfig() *Config {
+	defaultSDKConfig := config.DefaultConfig()
+	defaultSDKConfig.API.Enable = DefaultAPIEnable
+	defaultSDKConfig.GRPC.Enable = DefaultGRPCEnable
+	defaultSDKConfig.GRPCWeb.Enable = DefaultGRPCWebEnable
+	defaultSDKConfig.Rosetta.Enable = DefaultRosettaEnable
+	defaultSDKConfig.Telemetry.Enabled = DefaultTelemetryEnable
+
 	return &Config{
-		Config:  *config.DefaultConfig(),
+		Config:  *defaultSDKConfig,
 		EVM:     *DefaultEVMConfig(),
 		JSONRPC: *DefaultJSONRPCConfig(),
 		TLS:     *DefaultTLSConfig(),
@@ -219,7 +240,7 @@ func GetAPINamespaces() []string {
 // DefaultJSONRPCConfig returns an EVM config with the JSON-RPC API enabled by default
 func DefaultJSONRPCConfig() *JSONRPCConfig {
 	return &JSONRPCConfig{
-		Enable:                   true,
+		Enable:                   false,
 		API:                      GetDefaultAPINamespaces(),
 		Address:                  DefaultJSONRPCAddress,
 		WsAddress:                DefaultJSONRPCWsAddress,
@@ -318,50 +339,11 @@ func (c TLSConfig) Validate() error {
 
 // GetConfig returns a fully parsed Config object.
 func GetConfig(v *viper.Viper) (Config, error) {
-	cfg, err := config.GetConfig(v)
-	if err != nil {
-		return Config{}, err
-	}
-
-	return Config{
-		Config: cfg,
-		EVM: EVMConfig{
-			Tracer:         v.GetString("evm.tracer"),
-			MaxTxGasWanted: v.GetUint64("evm.max-tx-gas-wanted"),
-		},
-		JSONRPC: JSONRPCConfig{
-			Enable:                   v.GetBool("json-rpc.enable"),
-			API:                      v.GetStringSlice("json-rpc.api"),
-			Address:                  v.GetString("json-rpc.address"),
-			WsAddress:                v.GetString("json-rpc.ws-address"),
-			GasCap:                   v.GetUint64("json-rpc.gas-cap"),
-			FilterCap:                v.GetInt32("json-rpc.filter-cap"),
-			FeeHistoryCap:            v.GetInt32("json-rpc.feehistory-cap"),
-			TxFeeCap:                 v.GetFloat64("json-rpc.txfee-cap"),
-			EVMTimeout:               v.GetDuration("json-rpc.evm-timeout"),
-			LogsCap:                  v.GetInt32("json-rpc.logs-cap"),
-			BlockRangeCap:            v.GetInt32("json-rpc.block-range-cap"),
-			HTTPTimeout:              v.GetDuration("json-rpc.http-timeout"),
-			HTTPIdleTimeout:          v.GetDuration("json-rpc.http-idle-timeout"),
-			MaxOpenConnections:       v.GetInt("json-rpc.max-open-connections"),
-			EnableIndexer:            v.GetBool("json-rpc.enable-indexer"),
-			MetricsAddress:           v.GetString("json-rpc.metrics-address"),
-			FixRevertGasRefundHeight: v.GetInt64("json-rpc.fix-revert-gas-refund-height"),
-		},
-		TLS: TLSConfig{
-			CertificatePath: v.GetString("tls.certificate-path"),
-			KeyPath:         v.GetString("tls.key-path"),
-		},
-	}, nil
-}
-
-// ParseConfig retrieves the default environment configuration for the
-// application.
-func ParseConfig(v *viper.Viper) (*Config, error) {
 	conf := DefaultConfig()
-	err := v.Unmarshal(conf)
-
-	return conf, err
+	if err := v.Unmarshal(conf); err != nil {
+		return Config{}, fmt.Errorf("error extracting app config: %w", err)
+	}
+	return *conf, nil
 }
 
 // ValidateBasic returns an error any of the application configuration fields are invalid
