@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 	"time"
@@ -14,11 +15,17 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	sdkvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/evmos/evmos/v14/contracts"
 	"github.com/evmos/evmos/v14/crypto/ethsecp256k1"
 	"github.com/evmos/evmos/v14/testutil"
 	utiltx "github.com/evmos/evmos/v14/testutil/tx"
 	"github.com/evmos/evmos/v14/utils"
+	erc20types "github.com/evmos/evmos/v14/x/erc20/types"
+	evmtypes "github.com/evmos/evmos/v14/x/evm/types"
 	"github.com/evmos/evmos/v14/x/vesting/types"
 )
 
@@ -645,7 +652,7 @@ var _ = Describe("Clawback Vesting Accounts - claw back tokens", func() {
 	)
 
 	vestingAddr := sdk.AccAddress(utiltx.GenerateAddress().Bytes())
-	funder := sdk.AccAddress(utiltx.GenerateAddress().Bytes())
+	funder, funderPriv := utiltx.NewAccAddressAndKey()
 	dest := sdk.AccAddress(utiltx.GenerateAddress().Bytes())
 
 	BeforeEach(func() {
@@ -866,6 +873,203 @@ var _ = Describe("Clawback Vesting Accounts - claw back tokens", func() {
 		s.Require().Equal(balanceFunder, bF)
 		s.Require().Equal(balanceGrantee, bG)
 		s.Require().Equal(balanceDest, bD)
+	})
+
+	Context("while there is an active governance proposal for the vesting account", func() {
+		var clawbackProposalID uint64
+
+		BeforeEach(func() {
+			// submit a different proposal to simulate having multiple proposals of different types
+			// on chain.
+			msgSubmitProposal, err := govv1beta1.NewMsgSubmitProposal(
+				&erc20types.RegisterERC20Proposal{
+					Title:          "test gov upgrade",
+					Description:    "this is an example of a governance proposal to upgrade the evmos app",
+					Erc20Addresses: []string{},
+				},
+				sdk.NewCoins(sdk.NewCoin(stakeDenom, sdk.NewInt(1e9))),
+				s.address.Bytes(),
+			)
+			Expect(err).ToNot(HaveOccurred(), "expected no error creating the proposal submission message")
+
+			_, err = testutil.DeliverTx(s.ctx, s.app, s.priv, nil, msgSubmitProposal)
+			Expect(err).ToNot(HaveOccurred(), "expected no error during proposal submission")
+
+			// submit clawback proposal
+			govClawbackProposal := &types.ClawbackProposal{
+				Title:              "test gov clawback",
+				Description:        "this is an example of a governance proposal to clawback vesting coins",
+				Address:            vestingAddr.String(),
+				DestinationAddress: funder.String(),
+			}
+
+			deposit := sdk.Coins{sdk.Coin{Denom: stakeDenom, Amount: sdk.NewInt(1)}}
+
+			// Create the message to submit the proposal
+			msgSubmit, err := govv1beta1.NewMsgSubmitProposal(
+				govClawbackProposal, deposit, s.address.Bytes(),
+			)
+			Expect(err).ToNot(HaveOccurred(), "expected no error creating the proposal submission message")
+			// deliver the proposal
+			_, err = testutil.DeliverTx(s.ctx, s.app, s.priv, nil, msgSubmit)
+			Expect(err).ToNot(HaveOccurred(), "expected no error during proposal submission")
+
+			s.Commit()
+
+			// Check if the proposal was submitted
+			proposals := s.app.GovKeeper.GetProposals(s.ctx)
+			Expect(len(proposals)).To(Equal(2), "expected two proposals to be found")
+			proposal := proposals[len(proposals)-1]
+			clawbackProposalID = proposal.Id
+			Expect(proposal.GetTitle()).To(Equal("test gov clawback"), "expected different proposal title")
+			Expect(proposal.Status).To(Equal(govv1.StatusDepositPeriod), "expected proposal to be in deposit period")
+		})
+
+		Context("with deposit made", func() {
+			BeforeEach(func() {
+				params := s.app.GovKeeper.GetParams(s.ctx)
+				depositAmount := params.MinDeposit[0].Amount.Sub(sdk.NewInt(1))
+				deposit := sdk.Coins{sdk.Coin{Denom: params.MinDeposit[0].Denom, Amount: depositAmount}}
+
+				// Deliver the deposit
+				msgDeposit := govv1beta1.NewMsgDeposit(s.address.Bytes(), clawbackProposalID, deposit)
+				_, err := testutil.DeliverTx(s.ctx, s.app, s.priv, nil, msgDeposit)
+				Expect(err).ToNot(HaveOccurred(), "expected no error during proposal deposit")
+
+				s.Commit()
+
+				// Check the proposal is in voting period
+				proposal, found := s.app.GovKeeper.GetProposal(s.ctx, clawbackProposalID)
+				Expect(found).To(BeTrue(), "expected proposal to be found")
+				Expect(proposal.Status).To(Equal(govv1.StatusVotingPeriod), "expected proposal to be in voting period")
+
+				// Check the store entry was set correctly
+				hasActivePropposal := s.app.VestingKeeper.HasActiveClawbackProposal(s.ctx, vestingAddr)
+				Expect(hasActivePropposal).To(BeTrue(), "expected an active clawback proposal for the vesting account")
+			})
+
+			It("should not allow clawback", func() {
+				// Try to clawback tokens
+				msgClawback := types.NewMsgClawback(funder, vestingAddr, dest)
+				_, err = s.app.VestingKeeper.Clawback(sdk.WrapSDKContext(s.ctx), msgClawback)
+				Expect(err).To(HaveOccurred(), "expected error during clawback while there is an active governance proposal")
+				Expect(err.Error()).To(ContainSubstring("clawback is disabled while there is an active clawback proposal"))
+
+				// Check that the clawback was not performed
+				acc := s.app.AccountKeeper.GetAccount(s.ctx, vestingAddr)
+				Expect(acc).ToNot(BeNil(), "expected account to exist")
+				_, isClawback := acc.(*types.ClawbackVestingAccount)
+				Expect(isClawback).To(BeTrue(), "expected account to be clawback vesting account")
+
+				balances, err := s.app.VestingKeeper.Balances(s.ctx, &types.QueryBalancesRequest{
+					Address: vestingAddr.String(),
+				})
+				Expect(err).ToNot(HaveOccurred(), "expected no error during balances query")
+				Expect(balances.Unvested).To(Equal(vestingAmtTotal), "expected no tokens to be clawed back")
+
+				// Delegate some funds to the suite validators in order to vote on proposal with enough voting power
+				// using only the suite private key
+				priv, ok := s.priv.(*ethsecp256k1.PrivKey)
+				Expect(ok).To(BeTrue(), "expected private key to be of type ethsecp256k1.PrivKey")
+				validators := s.app.StakingKeeper.GetBondedValidatorsByPower(s.ctx)
+				err = testutil.FundAccountWithBaseDenom(s.ctx, s.app.BankKeeper, s.address.Bytes(), 5e18)
+				Expect(err).ToNot(HaveOccurred(), "expected no error during funding of account")
+				for _, val := range validators {
+					res, err := testutil.Delegate(s.ctx, s.app, priv, sdk.NewCoin(utils.BaseDenom, sdk.NewInt(1e18)), val)
+					Expect(err).ToNot(HaveOccurred(), "expected no error during delegation")
+					Expect(res.Code).To(BeZero(), "expected delegation to succeed")
+				}
+
+				// Vote on proposal
+				res, err := testutil.Vote(s.ctx, s.app, priv, clawbackProposalID, govv1beta1.OptionYes)
+				Expect(err).ToNot(HaveOccurred(), "failed to vote on proposal %d", clawbackProposalID)
+				Expect(res.Code).To(BeZero(), "expected proposal voting to succeed")
+
+				// Check that the funds are clawed back after the proposal has ended
+				s.CommitAfter(time.Hour * 24 * 365) // one year
+				// Commit again because EndBlocker is run with time of the previous block and gov proposals are ended in EndBlocker
+				s.Commit()
+
+				// Check that proposal has passed
+				proposal, found := s.app.GovKeeper.GetProposal(s.ctx, clawbackProposalID)
+				Expect(found).To(BeTrue(), "expected proposal to exist")
+				Expect(proposal.Status).ToNot(Equal(govv1.StatusVotingPeriod), "expected proposal to not be in voting period anymore")
+				Expect(proposal.Status).To(Equal(govv1.StatusPassed), "expected proposal to have passed")
+
+				// Check that the account was converted to a normal account
+				acc = s.app.AccountKeeper.GetAccount(s.ctx, vestingAddr)
+				Expect(acc).ToNot(BeNil(), "expected account to exist")
+				_, isClawback = acc.(*types.ClawbackVestingAccount)
+				Expect(isClawback).To(BeFalse(), "expected account to be a normal account")
+
+				hasActiveProposal := s.app.VestingKeeper.HasActiveClawbackProposal(s.ctx, vestingAddr)
+				Expect(hasActiveProposal).To(BeFalse(), "expected no active clawback proposal")
+			})
+
+			It("should not allow changing the vesting funder", func() {
+				msgUpdateFunder := types.NewMsgUpdateVestingFunder(funder, dest, vestingAddr)
+				_, err = s.app.VestingKeeper.UpdateVestingFunder(sdk.WrapSDKContext(s.ctx), msgUpdateFunder)
+				Expect(err).To(HaveOccurred(), "expected error during update funder while there is an active governance proposal")
+				Expect(err.Error()).To(ContainSubstring("cannot update funder while there is an active clawback proposal"))
+
+				// Check that the funder was not updated
+				acc := s.app.AccountKeeper.GetAccount(s.ctx, vestingAddr)
+				Expect(acc).ToNot(BeNil(), "expected account to exist")
+				clawbackAcc, isClawback := acc.(*types.ClawbackVestingAccount)
+				Expect(isClawback).To(BeTrue(), "expected account to be clawback vesting account")
+				Expect(clawbackAcc.FunderAddress).To(Equal(funder.String()), "expected funder to be unchanged")
+			})
+		})
+
+		Context("without deposit made", func() {
+			It("allows clawback and changing the funder before the deposit period ends", func() {
+				newFunder, newPriv := utiltx.NewAccAddressAndKey()
+
+				// fund accounts
+				err = testutil.FundAccountWithBaseDenom(s.ctx, s.app.BankKeeper, newFunder, 5e18)
+				Expect(err).ToNot(HaveOccurred(), "failed to fund target account")
+				err = testutil.FundAccountWithBaseDenom(s.ctx, s.app.BankKeeper, funder, 5e18)
+				Expect(err).ToNot(HaveOccurred(), "failed to fund target account")
+
+				msgUpdateFunder := types.NewMsgUpdateVestingFunder(funder, newFunder, vestingAddr)
+				_, err = testutil.DeliverTx(s.ctx, s.app, funderPriv, nil, msgUpdateFunder)
+				Expect(err).ToNot(HaveOccurred(), "expected no error during update funder while there is an active governance proposal")
+
+				// Check that the funder was updated
+				acc := s.app.AccountKeeper.GetAccount(s.ctx, vestingAddr)
+				Expect(acc).ToNot(BeNil(), "expected account to exist")
+				_, isClawback := acc.(*types.ClawbackVestingAccount)
+				Expect(isClawback).To(BeTrue(), "expected account to be clawback vesting account")
+
+				// Claw back tokens
+				msgClawback := types.NewMsgClawback(newFunder, vestingAddr, funder)
+				_, err = testutil.DeliverTx(s.ctx, s.app, newPriv, nil, msgClawback)
+				Expect(err).ToNot(HaveOccurred(), "expected no error during clawback while there is no deposit made")
+
+				// Check account is converted to a normal account
+				acc = s.app.AccountKeeper.GetAccount(s.ctx, vestingAddr)
+				Expect(acc).ToNot(BeNil(), "expected account to exist")
+				_, isClawback = acc.(*types.ClawbackVestingAccount)
+				Expect(isClawback).To(BeFalse(), "expected account to be a normal account")
+			})
+
+			It("should remove the store entry after the deposit period ends", func() {
+				s.CommitAfter(time.Hour * 24 * 365) // one year
+				// Commit again because EndBlocker is run with time of the previous block and gov proposals are ended in EndBlocker
+				s.Commit()
+
+				// Check that the proposal has ended -- since deposit failed it's removed from the store
+				_, found := s.app.GovKeeper.GetProposal(s.ctx, clawbackProposalID)
+				Expect(found).To(BeFalse(), "expected proposal not to be found")
+
+				// Check that the store entry was removed
+				hasActiveProposal := s.app.VestingKeeper.HasActiveClawbackProposal(s.ctx, vestingAddr)
+				Expect(hasActiveProposal).To(BeFalse(),
+					"expected no active clawback proposal for address %q",
+					vestingAddr.String(),
+				)
+			})
+		})
 	})
 
 	It("should update vesting funder and claw back unvested amount before cliff", func() {
@@ -1175,6 +1379,62 @@ var _ = Describe("Clawback Vesting Accounts - claw back tokens", func() {
 	})
 })
 
+// Testing that smart contracts cannot be converted to clawback vesting accounts
+//
+// NOTE: For smart contracts, it is not possible to directly call keeper methods
+// or send SDK transactions. They go exclusively through the EVM, which is tested
+// in the precompiles package.
+// The test here is just confirming the expected behavior on the module level.
+var _ = Describe("Clawback Vesting Account - Smart contract", func() {
+	var (
+		contractAddr common.Address
+		contract     evmtypes.CompiledContract
+		err          error
+	)
+
+	BeforeEach(func() {
+		contract = contracts.ERC20MinterBurnerDecimalsContract
+		contractAddr, err = testutil.DeployContract(
+			s.ctx,
+			s.app,
+			s.priv,
+			s.queryClientEvm,
+			contract,
+			"Test", "TTT", uint8(18),
+		)
+		Expect(err).ToNot(HaveOccurred(), "failed to deploy contract")
+	})
+
+	It("should not convert a smart contract to a clawback vesting account", func() {
+		msgCreate := types.NewMsgCreateClawbackVestingAccount(
+			s.address.Bytes(),
+			contractAddr.Bytes(),
+			false,
+		)
+		_, err := s.app.VestingKeeper.CreateClawbackVestingAccount(s.ctx, msgCreate)
+		Expect(err).To(HaveOccurred(), "expected error")
+		Expect(err.Error()).To(ContainSubstring(
+			fmt.Sprintf(
+				"account %s is a contract account and cannot be converted in a clawback vesting account",
+				sdk.AccAddress(contractAddr.Bytes()).String()),
+		))
+
+		// Check that the account was not converted
+		acc := s.app.AccountKeeper.GetAccount(s.ctx, contractAddr.Bytes())
+		Expect(acc).ToNot(BeNil(), "smart contract should be found")
+		_, ok := acc.(*types.ClawbackVestingAccount)
+		Expect(ok).To(BeFalse(), "account should not be a clawback vesting account")
+
+		// Check that the contract code was not deleted
+		//
+		// NOTE: When it was possible to create clawback vesting accounts for smart contracts,
+		// the contract code was deleted from the EVM state. This checks that this is not the case.
+		res, err := s.app.EvmKeeper.Code(s.ctx, &evmtypes.QueryCodeRequest{Address: contractAddr.String()})
+		Expect(err).ToNot(HaveOccurred(), "failed to query contract code")
+		Expect(res.Code).ToNot(BeEmpty(), "contract code should not be empty")
+	})
+})
+
 // Trying to replicate the faulty behavior in MsgCreateClawbackVestingAccount,
 // that was disclosed as a potential attack vector in relation to the Barberry
 // security patch.
@@ -1353,159 +1613,6 @@ var _ = Describe("Clawback Vesting Account - Barberry bug", func() {
 					balance := s.app.BankKeeper.GetBalance(s.ctx, vestingAddr, utils.BaseDenom)
 					expBalance := int64(2e18) + int64(1e18) - txCost // fundedCoins + vestingCoins - txCost
 					Expect(balance.Amount.Int64()).To(Equal(expBalance), "vesting account has incorrect balance")
-				}
-			})
-		}
-	})
-})
-
-// Trying to replicate the faulty behavior in MsgCreateClawbackVestingAccount,
-// that was disclosed as a potential attack vector in relation to the Barberry
-// security patch.
-//
-// It was possible to create a clawback vesting account with negative amounts.
-// Avoiding this requires an additional validation of the amount in the
-// MsgCreateClawbackVestingAccount's ValidateBasic method.
-var _ = Describe("Clawback Vesting Account - Barberry bug", func() {
-	var (
-		// coinsNoNegAmount is a Coins struct with a positive and a negative amount of the same
-		// denomination.
-		coinsNoNegAmount = sdk.Coins{
-			sdk.Coin{Denom: utils.BaseDenom, Amount: sdk.NewInt(1e18)},
-		}
-		// coinsWithNegAmount is a Coins struct with a positive and a negative amount of the same
-		// denomination.
-		coinsWithNegAmount = sdk.Coins{
-			sdk.Coin{Denom: utils.BaseDenom, Amount: sdk.NewInt(1e18)},
-			sdk.Coin{Denom: utils.BaseDenom, Amount: sdk.NewInt(-1e18)},
-		}
-		// coinsWithZeroAmount is a Coins struct with a positive and a zero amount of the same
-		// denomination.
-		coinsWithZeroAmount = sdk.Coins{
-			sdk.Coin{Denom: utils.BaseDenom, Amount: sdk.NewInt(1e18)},
-			sdk.Coin{Denom: utils.BaseDenom, Amount: sdk.NewInt(0)},
-		}
-		// emptyCoins is an Coins struct
-		emptyCoins = sdk.Coins{}
-		// newAddr is account address of the vesting account to be created
-		newAddr = sdk.AccAddress(utiltx.GenerateAddress().Bytes())
-		// vestingLength is a period of time in seconds to be used for the creation of the vesting
-		// account.
-		vestingLength = int64(60 * 60 * 24 * 30) // 30 days in seconds
-	)
-
-	BeforeEach(func() {
-		s.SetupTest()
-	})
-
-	Context("when creating a clawback vesting account", func() {
-		testcases := []struct {
-			name         string
-			lockupCoins  sdk.Coins
-			vestingCoins sdk.Coins
-			expError     bool
-			errContains  string
-		}{
-			{
-				name:        "pass - positive amounts for the lockup period",
-				lockupCoins: coinsNoNegAmount,
-			},
-			{
-				name:         "pass - positive amounts for the vesting period",
-				vestingCoins: coinsNoNegAmount,
-			},
-			{
-				name:         "pass - positive amounts for both the lockup and vesting periods",
-				lockupCoins:  coinsNoNegAmount,
-				vestingCoins: coinsNoNegAmount,
-			},
-			{
-				name:        "fail - negative amounts for the lockup period",
-				lockupCoins: coinsWithNegAmount,
-				expError:    true,
-				errContains: "invalid amount in lockup periods, amounts must be positive",
-			},
-			{
-				name:         "fail - negative amounts for the vesting period",
-				vestingCoins: coinsWithNegAmount,
-				expError:     true,
-				errContains:  "invalid coins: invalid request",
-			},
-			{
-				name:        "fail - zero amount for the lockup period",
-				lockupCoins: coinsWithZeroAmount,
-				expError:    true,
-				errContains: "invalid amount in lockup periods, amounts must be positive",
-			},
-			{
-				name:         "fail - zero amount for the vesting period",
-				vestingCoins: coinsWithZeroAmount,
-				expError:     true,
-				errContains:  "invalid coins: invalid request",
-			},
-			{
-				name:         "fail - empty amount for both the lockup and vesting periods",
-				lockupCoins:  emptyCoins,
-				vestingCoins: emptyCoins,
-				expError:     true,
-				errContains:  "vesting and/or lockup schedules must be present",
-			},
-		}
-
-		for _, tc := range testcases {
-			tc := tc
-			It(tc.name, func() {
-				var (
-					lockupPeriods  sdkvesting.Periods
-					vestingPeriods sdkvesting.Periods
-				)
-
-				if !tc.lockupCoins.Empty() {
-					lockupPeriods = sdkvesting.Periods{
-						sdkvesting.Period{Length: vestingLength, Amount: tc.lockupCoins},
-					}
-				}
-
-				if !tc.vestingCoins.Empty() {
-					vestingPeriods = sdkvesting.Periods{
-						sdkvesting.Period{Length: vestingLength, Amount: tc.vestingCoins},
-					}
-				}
-
-				// Create a clawback vesting account at the given address
-				msg := types.NewMsgCreateClawbackVestingAccount(
-					sdk.AccAddress(s.address.Bytes()),
-					newAddr,
-					s.ctx.BlockTime(),
-					lockupPeriods,
-					vestingPeriods,
-					true,
-				)
-
-				// Deliver transaction with message
-				res, err := testutil.DeliverTx(s.ctx, s.app, s.priv, nil, msg)
-
-				// Get account at the new address
-				vacc := s.app.AccountKeeper.GetAccount(s.ctx, newAddr)
-
-				if tc.expError {
-					Expect(err).To(HaveOccurred(), "expected clawback vesting account creation to have failed")
-					Expect(err.Error()).To(ContainSubstring(tc.errContains), "expected clawback vesting account creation to have failed")
-
-					Expect(vacc).To(BeNil(), "expected clawback vesting account to not have been created")
-				} else {
-					Expect(err).ToNot(HaveOccurred(), "failed to create clawback vesting account")
-					Expect(res.Code).To(Equal(uint32(0)), "failed to create clawback vesting account")
-					Expect(vacc).ToNot(BeNil(), "vesting account should have been created")
-
-					// Check that the vesting account has the correct balance
-					balance := s.app.BankKeeper.GetBalance(s.ctx, newAddr, utils.BaseDenom)
-					Expect(balance.Amount.Int64()).To(Equal(int64(1e18)), "vesting account has incorrect balance")
-
-					// Check that the vesting account has the correct vesting periods
-					pvacc, ok := vacc.(*types.ClawbackVestingAccount)
-					Expect(ok).To(BeTrue(), "vesting account is not a clawback vesting account")
-					Expect(pvacc.VestingPeriods).To(HaveLen(1), "vesting account has incorrect number of vesting periods")
 				}
 			})
 		}

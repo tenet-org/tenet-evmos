@@ -1,6 +1,6 @@
 // Copyright Tharsis Labs Ltd.(Evmos)
 // SPDX-License-Identifier:ENCL-1.0(https://github.com/evmos/evmos/blob/main/LICENSE)
-package vesting_test
+package v14_test
 
 import (
 	"encoding/json"
@@ -12,18 +12,16 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
-	"github.com/cosmos/cosmos-sdk/testutil/mock"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	"github.com/cosmos/ibc-go/v7/testing/mock"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	evmosapp "github.com/evmos/evmos/v14/app"
 	cmn "github.com/evmos/evmos/v14/precompiles/common"
-	"github.com/evmos/evmos/v14/precompiles/testutil/contracts"
 	"github.com/evmos/evmos/v14/precompiles/vesting"
-	"github.com/evmos/evmos/v14/precompiles/vesting/testdata"
 	evmosutil "github.com/evmos/evmos/v14/testutil"
 	testutiltx "github.com/evmos/evmos/v14/testutil/tx"
 	evmostypes "github.com/evmos/evmos/v14/types"
@@ -31,16 +29,13 @@ import (
 	"github.com/evmos/evmos/v14/x/evm/statedb"
 	evmtypes "github.com/evmos/evmos/v14/x/evm/types"
 	inflationtypes "github.com/evmos/evmos/v14/x/inflation/types"
-	vestingtypes "github.com/evmos/evmos/v14/x/vesting/types"
-
-	. "github.com/onsi/gomega"
 )
 
 // SetupWithGenesisValSet initializes a new EvmosApp with a validator set and genesis accounts
 // that also act as delegators. For simplicity, each validator is bonded with a delegation
 // of one consensus engine unit (10^6) in the default token of the simapp from first genesis
 // account. A Nop logger is set in SimApp.
-func (s *PrecompileTestSuite) SetupWithGenesisValSet(valSet *tmtypes.ValidatorSet, genAccs []authtypes.GenesisAccount, balances ...banktypes.Balance) {
+func (s *UpgradesTestSuite) SetupWithGenesisValSet(valSet *tmtypes.ValidatorSet, genAccs []authtypes.GenesisAccount, balances ...banktypes.Balance) {
 	appI, genesisState := evmosapp.SetupTestingApp(cmn.DefaultChainID)()
 	app, ok := appI.(*evmosapp.Evmos)
 	s.Require().True(ok)
@@ -136,7 +131,7 @@ func (s *PrecompileTestSuite) SetupWithGenesisValSet(valSet *tmtypes.ValidatorSe
 	s.app = app
 }
 
-func (s *PrecompileTestSuite) DoSetupTest() {
+func (s *UpgradesTestSuite) DoSetupTest() {
 	nValidators := 3
 	signers := make(map[string]tmtypes.PrivValidator, nValidators)
 	validators := make([]*tmtypes.Validator, 0, nValidators)
@@ -180,8 +175,9 @@ func (s *PrecompileTestSuite) DoSetupTest() {
 	// bond denom
 	stakingParams := s.app.StakingKeeper.GetParams(s.ctx)
 	stakingParams.BondDenom = utils.BaseDenom
+	stakingParams.MinCommissionRate = zeroDec
 	s.bondDenom = stakingParams.BondDenom
-	err = s.app.StakingKeeper.SetParams(s.ctx, stakingParams)
+	err := s.app.StakingKeeper.SetParams(s.ctx, stakingParams)
 	s.Require().NoError(err, "failed to set params")
 
 	s.ethSigner = ethtypes.LatestSignerForChainID(s.app.EvmKeeper.ChainID())
@@ -202,112 +198,9 @@ func (s *PrecompileTestSuite) DoSetupTest() {
 	s.queryClientEVM = evmtypes.NewQueryClient(queryHelperEvm)
 }
 
-// CallType is a struct that represents the type of call to be made to the
-// precompile - either direct or through a smart contract.
-type CallType struct {
-	// name is the name of the call type
-	name string
-	// directCall is true if the call is to be made directly to the precompile
-	directCall bool
-}
-
-// BuildCallArgs builds the call arguments for the integration test suite
-// depending on the type of interaction.
-func (s *PrecompileTestSuite) BuildCallArgs(
-	callType CallType,
-	contractAddr common.Address,
-) contracts.CallArgs {
-	callArgs := contracts.CallArgs{
-		PrivKey: s.privKey,
-	}
-	if callType.directCall {
-		callArgs.ContractABI = s.precompile.ABI
-		callArgs.ContractAddr = s.precompile.Address()
-	} else {
-		callArgs.ContractAddr = contractAddr
-		callArgs.ContractABI = testdata.VestingCallerContract.ABI
-	}
-
-	return callArgs
-}
-
-// FundTestClawbackVestingAccount funds the clawback vesting account with some tokens
-func (s *PrecompileTestSuite) FundTestClawbackVestingAccount() {
-	method := s.precompile.Methods[vesting.FundVestingAccountMethod]
-	createArgs := []interface{}{s.address, toAddr, uint64(time.Now().Unix()), lockupPeriods, vestingPeriods}
-	//nolint
-	msg, _, _, _, _, err := vesting.NewMsgFundVestingAccount(createArgs, &method)
-	_, err = s.app.VestingKeeper.FundVestingAccount(s.ctx, msg)
-	s.Require().NoError(err)
-	vestingAcc, err := s.app.VestingKeeper.Balances(s.ctx, &vestingtypes.QueryBalancesRequest{Address: sdk.AccAddress(toAddr.Bytes()).String()})
-	s.Require().NoError(err)
-	s.Require().Equal(vestingAcc.Locked, balancesSdkCoins)
-	s.Require().Equal(vestingAcc.Unvested, balancesSdkCoins)
-}
-
-// CreateTestClawbackVestingAccount creates a vesting account that can clawback
-func (s *PrecompileTestSuite) CreateTestClawbackVestingAccount(funder, vestingAddr common.Address) {
-	msgArgs := []interface{}{funder, vestingAddr, false}
-	//nolint
-	msg, _, _, err := vesting.NewMsgCreateClawbackVestingAccount(msgArgs)
-	err = evmosutil.FundAccount(s.ctx, s.app.BankKeeper, vestingAddr.Bytes(), sdk.NewCoins(sdk.NewCoin(utils.BaseDenom, sdk.NewInt(100))))
-	s.Require().NoError(err)
-	_, err = s.app.VestingKeeper.CreateClawbackVestingAccount(s.ctx, msg)
-	s.Require().NoError(err)
-}
-
-// DeployContract deploys a contract that calls the staking precompile's methods for testing purposes.
-func (s *PrecompileTestSuite) DeployContract(contract evmtypes.CompiledContract) (addr common.Address, err error) {
-	addr, err = evmosutil.DeployContract(
-		s.ctx,
-		s.app,
-		s.privKey,
-		s.queryClientEVM,
-		contract,
-	)
-	return
-}
-
-// ExpectSimpleVestingAccount checks that the vesting account has the expected funder address
-func (s *PrecompileTestSuite) ExpectSimpleVestingAccount(vestingAddr, funderAddr common.Address) {
-	vestingAcc := s.GetVestingAccount(vestingAddr)
-	funder, err := sdk.AccAddressFromBech32(vestingAcc.FunderAddress)
-	Expect(err).ToNot(HaveOccurred(), "vesting account should have a valid funder address")
-	Expect(funder.Bytes()).To(Equal(funderAddr.Bytes()), "vesting account should have the correct funder address")
-}
-
-// ExpectVestingAccount checks that the vesting account has the expected lockup and vesting periods.
-func (s *PrecompileTestSuite) ExpectVestingAccount(vestingAddr common.Address, lockupPeriods, vestingPeriods []vesting.Period) {
-	vestingAcc := s.GetVestingAccount(vestingAddr)
-	// TODO: check for multiple lockup or vesting periods
-	Expect(vestingAcc.LockupPeriods).To(HaveLen(len(lockupPeriods)), "vesting account should have the correct number of lockup periods")
-	Expect(vestingAcc.LockupPeriods[0].Length).To(Equal(lockupPeriods[0].Length), "vesting account should have the correct lockup period length")
-	Expect(vestingAcc.LockupPeriods[0].Amount[0].Denom).To(Equal(lockupPeriods[0].Amount[0].Denom), "vesting account should have the correct vestingPeriod amount")
-	Expect(vestingAcc.LockupPeriods[0].Amount[0].Amount.BigInt()).To(Equal(lockupPeriods[0].Amount[0].Amount), "vesting account should have the correct vesting amount")
-	Expect(vestingAcc.VestingPeriods).To(HaveLen(len(vestingPeriods)), "vesting account should have the correct number of vesting periods")
-	Expect(vestingAcc.VestingPeriods[0].Length).To(Equal(vestingPeriods[0].Length), "vesting account should have the correct vesting period length")
-	Expect(vestingAcc.VestingPeriods[0].Amount[0].Denom).To(Equal(vestingPeriods[0].Amount[0].Denom), "vesting account should have the correct vesting amount")
-	Expect(vestingAcc.VestingPeriods[0].Amount[0].Amount.BigInt()).To(Equal(vestingPeriods[0].Amount[0].Amount), "vesting account should have the correct vesting amount")
-}
-
-// ExpectVestingFunder checks that the vesting funder of a given vesting account address is the given one.
-func (s *PrecompileTestSuite) ExpectVestingFunder(vestingAddr common.Address, funderAddr common.Address) {
-	vestingAcc := s.GetVestingAccount(vestingAddr)
-	Expect(vestingAcc.FunderAddress).To(Equal(sdk.AccAddress(funderAddr.Bytes()).String()), "expected a different funder for the vesting account")
-}
-
-// GetVestingAccount returns the vesting account for the given address.
-func (s *PrecompileTestSuite) GetVestingAccount(addr common.Address) *vestingtypes.ClawbackVestingAccount {
-	acc := s.app.AccountKeeper.GetAccount(s.ctx, addr.Bytes())
-	Expect(acc).ToNot(BeNil(), "vesting account should exist")
-	vestingAcc, ok := acc.(*vestingtypes.ClawbackVestingAccount)
-	Expect(ok).To(BeTrue(), "vesting account should be of type VestingAccount")
-	return vestingAcc
-}
-
 // NextBlock commits the current block and sets up the next block.
-func (s *PrecompileTestSuite) NextBlock() {
+func (s *UpgradesTestSuite) NextBlock() {
 	var err error
 	s.ctx, err = evmosutil.CommitAndCreateNewCtx(s.ctx, s.app, time.Second, nil)
-	Expect(err).To(BeNil(), "failed to commit block")
+	s.Require().NoError(err)
 }

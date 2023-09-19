@@ -23,7 +23,7 @@ func (k Keeper) HasGovClawbackDisabled(ctx sdk.Context, addr sdk.AccAddress) boo
 func (k Keeper) SetGovClawbackDisabled(ctx sdk.Context, addr sdk.AccAddress) {
 	//nolint:gocritic
 	key := append(types.KeyPrefixGovClawbackDisabledKey, addr.Bytes()...)
-	ctx.KVStore(k.storeKey).Set(key, []byte{0x01})
+	ctx.KVStore(k.storeKey).Set(key, []byte{})
 }
 
 // DeleteGovClawbackDisabled enables the given vesting account address to be clawed back
@@ -32,4 +32,35 @@ func (k Keeper) DeleteGovClawbackDisabled(ctx sdk.Context, addr sdk.AccAddress) 
 	//nolint:gocritic
 	key := append(types.KeyPrefixGovClawbackDisabledKey, addr.Bytes()...)
 	ctx.KVStore(k.storeKey).Delete(key)
+}
+
+// HasActiveClawbackProposal checks if there is an active clawback proposal for the given
+// vesting account address.
+func (k Keeper) HasActiveClawbackProposal(ctx sdk.Context, addr sdk.AccAddress) bool {
+	key := buildActiveAccountClawbackProposalKey(addr)
+
+	return ctx.KVStore(k.storeKey).Has(key)
+}
+
+// SetActiveClawbackProposal sets the given vesting account address as subject to an active governance clawback
+// proposal by writing it to store under the corresponding key.
+func (k Keeper) SetActiveClawbackProposal(ctx sdk.Context, addr sdk.AccAddress) {
+	key := buildActiveAccountClawbackProposalKey(addr)
+	ctx.KVStore(k.storeKey).Set(key, []byte{})
+}
+
+// DeleteActiveClawbackProposal deletes the entry for the given vesting account address
+// from the store, indicating that there is no active governance clawback proposal for it.
+func (k Keeper) DeleteActiveClawbackProposal(ctx sdk.Context, addr sdk.AccAddress) {
+	key := buildActiveAccountClawbackProposalKey(addr)
+	ctx.KVStore(k.storeKey).Delete(key)
+}
+
+// buildActiveAccountClawbackProposalKey builds the key for the given account address prefixed with the governance clawback proposal key
+func buildActiveAccountClawbackProposalKey(addr sdk.AccAddress) []byte {
+	key := make([]byte, 0, len(types.KeyPrefixGovClawbackProposalKey)+len(addr.Bytes()))
+	key = append(key, types.KeyPrefixGovClawbackProposalKey...)
+	key = append(key, addr.Bytes()...)
+
+	return key
 }

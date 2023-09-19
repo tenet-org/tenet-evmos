@@ -33,25 +33,75 @@ Types of changes (Stanzas):
 Ref: https://keepachangelog.com/en/1.0.0/
 -->
 
-
-
 # Changelog
 
-## [v13.0.0-rc3] - 2023-06-15
-
-### Bug Fixes
-
-- (evm) [160](https://github.com/evmos/precompiles/pull/160) Fixed hard coded BaseDenom and wrong comparison for MaxUint256
-
-## [v13.0.0-rc2] - 2023-06-13
+## [v14.0.0] - 2023-09-19
 
 ### State Machine Breaking
 
-- (vesting) [#1596](https://github.com/evmos/evmos/pull/1596) Add MsgCreateClawbackVestingAccount period validation
-- (evm) [#1535](https://github.com/evmos/evmos/pull/1535) Add EVM extensions support
+- (vesting) [#1754](https://github.com/evmos/evmos/pull/1754) Implement further vesting module refactors.
+- (evm) [#1727](https://github.com/evmos/evmos/pull/1727) Return an error when calling inactive EVM extensions
+- (deps) [#1732](https://github.com/evmos/evmos/pull/1732) Bump ibc-go version with error message fix.
+- (vesting) [#1730](https://github.com/evmos/evmos/pull/1730) Remove smart contract conversion to `ClawbackVestingAccount`
+- (deps) [#1662](https://github.com/evmos/evmos/pull/1662) Bump Cosmos-SDK to v0.47.4 and ibc-go to v7.2.0.
 
 ### Improvements
 
+- (gov) [#1791](https://github.com/evmos/evmos/pull/1791) Extend maximum proposal metadata length.
+- (cli) [#1786](https://github.com/evmos/evmos/pull/1786) Add `block` CLI command to query a block from local db.
+- (cli) [#1714](https://github.com/evmos/evmos/pull/1714) Use empty string as default value in `chain-id` flag to use the chain id from the genesis file when not specified.
+- (ics20) [#1688](https://github.com/evmos/evmos/pull/1688) Change authorization names to `grantee` / `granter` in the `ICS20` precompile
+- (staking) [#1702](https://github.com/evmos/evmos/pull/1702) Change authorization names to `grantee` / `granter` in the `staking` precompile
+- (mod) [#1674](https://github.com/evmos/evmos/pull/1674) Update `evmos` module name to `evmos/v14`
+- (cli) [#1677](https://github.com/evmos/evmos/pull/1677) Update docs for `vesting` cli
+- (proto) [#1684](https://github.com/evmos/evmos/pull/1684) Update proto files to use `evmos/v14`
+- (deps) [#1682](https://github.com/evmos/evmos/pull/1682) Migrate [evmos-ledger-go](https://github.com/evmos/evmos-ledger-go) logic to this repository
+- (vesting) [#1708](https://github.com/evmos/evmos/pull/1708) Minor improvements to `vesting` module
+- (vesting) [#1709](https://github.com/evmos/evmos/pull/1709) Add clawed back coins to `MsgClawbackResponse`
+- (cli) [#1706](https://github.com/evmos/evmos/pull/1706) Update `DefaultGasAdjustment` factor used in transactions.
+- (vesting)[#1672](https://github.com/evmos/evmos/pull/1672) Port `vesting` precompile code and refactor integration tests
+- (vesting)[#1667](https://github.com/evmos/evmos/pull/1667) Add support for vesting precompile in the `evm` module
+- (vesting) Refactor vesting flow
+- (cli) [#1647](https://github.com/evmos/evmos/pull/1647) Update defaults on `evmosd start` flags.
+- (deps) [#1682](https://github.com/evmos/evmos/pull/1682) Migrate `evmos-ledger-go` logic to this repository.
+- (mod) [#1687](https://github.com/evmos/evmos/pull/1687) Bump Evmos version to v14.
+
+### Bug Fixes
+
+- (proto) [#1713](https://github.com/evmos/evmos/pull/1713) Add proto file for v1 vesting module account
+- (deps) [#1718](https://github.com/evmos/evmos/pull/1718) Update rosetta types import.
+- (e2e) [#1678](https://github.com/evmos/evmos/pull/1678) Fix e2e tests after recent changes to `evmosd start` default flags
+- (evm) [#1703](https://github.com/evmos/evmos/pull/1703) Prevent panic on uint64 conversion in EVM keeper `ApplyMessageWithConfig` function.
+- (vesting) Fix vesting bug.
+- (rpc) [#1650](https://github.com/evmos/evmos/pull/1650) Fix racing conditions on RPC PubSub logic
+- (rpc) [#1655](https://github.com/evmos/evmos/pull/1655) Avoid channel get changed when concurrent subscribe happens.
+- (revenue) [#1659](https://github.com/evmos/evmos/pull/1659) Check if DevelopersShares are set to 0
+- (rpc) [#1663](https://github.com/evmos/evmos/pull/1663) Fix block number returned in opcode for debug trace related api.
+- (rpc) [#1676](https://github.com/evmos/evmos/pull/1676) Fix gas meter stacking gas from predecessors in `TraceTx` & `TraceBlock` functions.
+- (cli) [#1681](https://github.com/evmos/evmos/pull/1681) Add `bootstrap-state` command.
+- (ante) [#1693](https://github.com/evmos/evmos/pull/1693) Prevent panic on int64 conversion in EVM fees antehandler.
+
+## [v13.0.2] - 2023-07-05
+
+### Bug Fixes
+
+- (upgrade) [#1644](https://github.com/evmos/evmos/pull/1644) Adjust upgrade constants
+- (ci) [#1642](https://github.com/evmos/evmos/pull/1642) Fix target folder in GH action to push to the [Buf Schema Registry](https://buf.build/evmos/evmos) upon release
+
+## [v13.0.1] - 2023-07-04
+
+### Improvements
+
+- (deps) [#1635](https://github.com/evmos/evmos/pull/1635) Update cometbft `v0.34.29` with several minor bug fixes and low-severity security-fixes.
+
+## [v13.0.0] - 2023-07-03
+
+### Improvements
+
+- (app) [#1623](https://github.com/evmos/evmos/pull/1623) Adjust default app config to disable all server options
+- (app) [#1619](https://github.com/evmos/evmos/pull/1619) Add snapshot commands to CLI
+- (revenue) [#1607](https://github.com/evmos/evmos/pull/1607) Route gas fees from calling EVM extensions to community pool
+- (docker) [#1606](https://github.com/evmos/evmos/pull/1606) Improve Dockerfile to reduce image size
 - (deps) [#1597](https://github.com/evmos/evmos/pull/1597) Bump geth fork
 - (deps) [#1595](https://github.com/evmos/evmos/pull/1595) Bump cometbft and goleveldb
 - (evm) [#1578](https://github.com/evmos/evmos/pull/1578#) Add support of ICS20 transfer extension
@@ -59,10 +109,29 @@ Ref: https://keepachangelog.com/en/1.0.0/
 - (deps) [#1488](https://github.com/evmos/evmos/pull/1488) Bump btcd version to [`v0.23.3`](https://github.com/btcsuite/btcd/releases/tag/v0.23.3)
 - (deps) [#1492](https://github.com/evmos/evmos/pull/1492) Bump Cosmos SDK version to [`v0.46.11-alpha.ledger`](https://github.com/evmos/cosmos-sdk/releases/tag/v0.46.11-alpha.ledger) & use cometbft [`v0.34.27`](https://github.com/cometbft/cometbft/releases/tag/v0.34.27) replacement for Tendermint import
 
+### State Machine Breaking
+
+- (evm) [#1625](https://github.com/evmos/evmos/pull/1625) Migrate updated EVM extensions
+- (vesting) [#1596](https://github.com/evmos/evmos/pull/1596) Add MsgCreateClawbackVestingAccount period validation
+- (evm) [#1535](https://github.com/evmos/evmos/pull/1535) Add EVM extensions support
+
 ### Bug Fixes
 
+- (evm) [1602](https://github.com/evmos/evmos/pull/1602) Fixed hard coded BaseDenom and wrong comparison for MaxUint256
 - (deps) [#1567](https://github.com/evmos/evmos/pull/1567) Bump cosmos-sdk version to `v0.46.11-alpha.ledger.7`.
   Fix memory leak in `cosmos/iavl` package.
+
+## [v12.1.6] - 2023-07-04
+
+### Improvements
+
+- (deps) [#1635](https://github.com/evmos/evmos/pull/1635) Update cometbft `v0.34.29` with several minor bug fixes and low-severity security-fixes.
+
+## [v12.1.5] - 2023-06-08
+
+### Bug Fixes
+
+- (vesting) [GHSA-2q3r-p2m3-898g](https://github.com/evmos/evmos/commit/39b750cdaf1d69158ab93da85bd43ae4a7da1456) Apply ClawbackVestingAccount Barberry patch & Bump SDK to v0.46.13
 
 ## [v12.1.4] - 2023-05-26
 

@@ -129,7 +129,7 @@ import (
 	v12 "github.com/evmos/evmos/v14/app/upgrades/v12"
 	v13 "github.com/evmos/evmos/v14/app/upgrades/v13"
 	v14 "github.com/evmos/evmos/v14/app/upgrades/v14"
-	"github.com/evmos/evmos/v14/app/upgrades/v14rc2"
+
 	v8 "github.com/evmos/evmos/v14/app/upgrades/v8"
 	v81 "github.com/evmos/evmos/v14/app/upgrades/v8_1"
 	v82 "github.com/evmos/evmos/v14/app/upgrades/v8_2"
@@ -513,11 +513,9 @@ func NewEvmos(
 		AddRoute(incentivestypes.RouterKey, incentives.NewIncentivesProposalHandler(&app.IncentivesKeeper)).
 		AddRoute(vestingtypes.RouterKey, vesting.NewVestingProposalHandler(&app.VestingKeeper))
 
-	govConfig := govtypes.DefaultConfig()
-	/*
-		Example of setting gov params:
-		govConfig.MaxMetadataLen = 10000
-	*/
+	govConfig := govtypes.Config{
+		MaxMetadataLen: 5000,
+	}
 	govKeeper := govkeeper.NewKeeper(
 		appCodec, keys[govtypes.StoreKey], app.AccountKeeper, app.BankKeeper,
 		stakingKeeper, app.MsgServiceRouter(), govConfig, authAddr,
@@ -553,7 +551,7 @@ func NewEvmos(
 
 	app.VestingKeeper = vestingkeeper.NewKeeper(
 		keys[vestingtypes.StoreKey], authtypes.NewModuleAddress(govtypes.ModuleName), appCodec,
-		app.AccountKeeper, app.BankKeeper, app.DistrKeeper, app.StakingKeeper,
+		app.AccountKeeper, app.BankKeeper, app.DistrKeeper, app.StakingKeeper, govKeeper, // NOTE: app.govKeeper not defined yet, use govKeeper
 	)
 
 	app.Erc20Keeper = erc20keeper.NewKeeper(
@@ -604,6 +602,7 @@ func NewEvmos(
 	app.GovKeeper = *govKeeper.SetHooks(
 		govtypes.NewMultiGovHooks(
 			app.ClaimsKeeper.Hooks(),
+			app.VestingKeeper.Hooks(),
 		),
 	)
 
@@ -1304,23 +1303,12 @@ func (app *Evmos) setupUpgradeHandlers() {
 		),
 	)
 
-	// v14 upgrade handler
 	app.UpgradeKeeper.SetUpgradeHandler(
 		v14.UpgradeName,
 		v14.CreateUpgradeHandler(
 			app.mm, app.configurator,
-		),
-	)
-
-	// !! ATTENTION !!
-	// v14rc2 upgrade handler
-	// !! WHEN UPGRADING TO SDK v0.47 MAKE SURE TO INCLUDE THIS
-	// source: https://github.com/cosmos/cosmos-sdk/blob/release/v0.47.x/UPGRADING.md#xconsensus
-	app.UpgradeKeeper.SetUpgradeHandler(
-		v14rc2.UpgradeName,
-		v14rc2.CreateUpgradeHandler(
-			app.mm, app.configurator,
 			app.BankKeeper,
+			app.EvmKeeper,
 			app.StakingKeeper,
 			app.VestingKeeper,
 			app.ConsensusParamsKeeper,
@@ -1375,8 +1363,6 @@ func (app *Evmos) setupUpgradeHandlers() {
 	case v13.UpgradeName:
 		// no store upgrades
 	case v14.UpgradeName:
-		// no store upgrades
-	case v14rc2.UpgradeName:
 		// !! ATTENTION !!
 		// !! WHEN UPGRADING TO SDK v0.47 MAKE SURE TO INCLUDE THIS
 		// source: https://github.com/cosmos/cosmos-sdk/blob/release/v0.47.x/UPGRADING.md
