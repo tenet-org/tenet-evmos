@@ -12,8 +12,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/evmos/evmos/v14/ethereum/eip712"
-	"github.com/evmos/evmos/v14/testutil"
+	"github.com/evmos/evmos/v15/ethereum/eip712"
+	"github.com/evmos/evmos/v15/testutil"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -33,15 +33,15 @@ import (
 	authz "github.com/cosmos/cosmos-sdk/x/authz"
 	ibctypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	ibcclienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	"github.com/evmos/evmos/v14/crypto/ethsecp256k1"
+	"github.com/evmos/evmos/v15/crypto/ethsecp256k1"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	evtypes "github.com/cosmos/cosmos-sdk/x/evidence/types"
 	"github.com/cosmos/cosmos-sdk/x/feegrant"
 	govtypesv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
-	utiltx "github.com/evmos/evmos/v14/testutil/tx"
-	evmtypes "github.com/evmos/evmos/v14/x/evm/types"
+	utiltx "github.com/evmos/evmos/v15/testutil/tx"
+	evmtypes "github.com/evmos/evmos/v15/x/evm/types"
 )
 
 func (suite *AnteTestSuite) BuildTestEthTx(
@@ -664,4 +664,23 @@ func (suite *AnteTestSuite) prepareAccount(ctx sdk.Context, addr sdk.AccAddress,
 	return ctx.
 		WithBlockGasMeter(sdk.NewGasMeter(1e19)).
 		WithBlockHeight(ctx.BlockHeight() + 1)
+}
+
+// disableBaseFee is a helper function that edits the
+// feemarket parameters to not use base fee
+func (suite *AnteTestSuite) disableBaseFee(ctx sdk.Context) {
+	params := suite.app.FeeMarketKeeper.GetParams(ctx)
+	params.NoBaseFee = true
+	params.MinGasPrice = sdk.ZeroDec()
+	err := suite.app.FeeMarketKeeper.SetParams(ctx, params)
+	suite.Require().NoError(err)
+}
+
+// makeZeroFeeTx is a helper function that sets
+// the GasPrice field to zero on the provided evmTxArgs
+func makeZeroFeeTx(from common.Address, args evmtypes.EvmTxArgs) *evmtypes.MsgEthereumTx {
+	args.GasPrice = sdk.ZeroInt().BigInt()
+	tx := evmtypes.NewTx(&args)
+	tx.From = from.Hex()
+	return tx
 }

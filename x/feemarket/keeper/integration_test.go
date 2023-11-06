@@ -5,15 +5,18 @@ import (
 	"strings"
 
 	sdkmath "cosmossdk.io/math"
+
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/evmos/evmos/v14/crypto/ethsecp256k1"
-	"github.com/evmos/evmos/v14/testutil"
-	utiltx "github.com/evmos/evmos/v14/testutil/tx"
-	"github.com/evmos/evmos/v14/utils"
+	"github.com/evmos/evmos/v15/crypto/ethsecp256k1"
+	"github.com/evmos/evmos/v15/testutil"
+	utiltx "github.com/evmos/evmos/v15/testutil/tx"
+	"github.com/evmos/evmos/v15/utils"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )

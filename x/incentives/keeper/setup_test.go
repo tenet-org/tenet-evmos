@@ -3,7 +3,9 @@ package keeper_test
 import (
 	"testing"
 
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -14,10 +16,10 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	evm "github.com/evmos/evmos/v14/x/evm/types"
+	evm "github.com/evmos/evmos/v15/x/evm/types"
 
-	"github.com/evmos/evmos/v14/app"
-	"github.com/evmos/evmos/v14/x/incentives/types"
+	"github.com/evmos/evmos/v15/app"
+	"github.com/evmos/evmos/v15/x/incentives/types"
 )
 
 type KeeperTestSuite struct {

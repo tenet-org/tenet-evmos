@@ -1,7 +1,7 @@
 package keeper_test
 
 import (
-	"github.com/evmos/evmos/v14/app/ante/utils"
+	"github.com/evmos/evmos/v15/app/ante/utils"
 	"math/big"
 	"testing"
 
@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	evmostypes "github.com/evmos/evmos/v14/types"
-	"github.com/evmos/evmos/v14/x/evm/types"
+	evmostypes "github.com/evmos/evmos/v15/types"
+	"github.com/evmos/evmos/v15/x/evm/types"
 )
 
 func SetupContract(b *testing.B) (*KeeperTestSuite, common.Address) {

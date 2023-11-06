@@ -3,7 +3,9 @@ package keeper_test
 import (
 	"testing"
 
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -12,9 +14,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/evmos/evmos/v14/app"
-	"github.com/evmos/evmos/v14/utils"
-	"github.com/evmos/evmos/v14/x/feemarket/types"
+	"github.com/evmos/evmos/v15/app"
+	"github.com/evmos/evmos/v15/utils"
+	"github.com/evmos/evmos/v15/x/feemarket/types"
 	"github.com/stretchr/testify/suite"
 )
 

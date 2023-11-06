@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: LGPL-v3
 pragma solidity >=0.8.17;
 
-import "./../../ics20/ICS20.sol";
+import "./../../ics20/ICS20I.sol";
 import "./../../common/Types.sol";
 
 contract InterchainSender {
     /// @dev Approves the required spend limits for IBC transactions.
     /// @dev This creates a Cosmos Authorization Grants for the given methods.
     /// @dev This emits an Approval event.
-    function testApprove(Allocation[] calldata allocs) public {
+    function testApprove(ICS20Allocation[] calldata allocs) public {
         bool success = ICS20_CONTRACT.approve(address(this), allocs);
         require(success, "Failed to perform approval");
     }
@@ -114,6 +114,7 @@ contract InterchainSender {
         PageRequest calldata pageRequest
     )
         public
+        view
         returns (
             DenomTrace[] memory denomTraces,
             PageResponse memory pageResponse
@@ -124,20 +125,20 @@ contract InterchainSender {
 
     function testDenomTrace(
         string memory hash
-    ) public returns (DenomTrace[] memory denomTrace) {
+    ) public view returns (DenomTrace memory denomTrace) {
         return ICS20_CONTRACT.denomTrace(hash);
     }
 
     function testDenomHash(
         string memory trace
-    ) public returns (string memory hash) {
+    ) public view returns (string memory hash) {
         return ICS20_CONTRACT.denomHash(trace);
     }
 
     function testAllowance(
         address owner,
         address spender
-    ) public view returns (Allocation[] memory allocations) {
+    ) public view returns (ICS20Allocation[] memory allocations) {
         return ICS20_CONTRACT.allowance(owner, spender);
     }
 }

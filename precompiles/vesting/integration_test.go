@@ -10,16 +10,18 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common"
-	cmn "github.com/evmos/evmos/v14/precompiles/common"
-	"github.com/evmos/evmos/v14/precompiles/testutil"
-	"github.com/evmos/evmos/v14/precompiles/testutil/contracts"
-	"github.com/evmos/evmos/v14/precompiles/vesting"
-	"github.com/evmos/evmos/v14/precompiles/vesting/testdata"
-	evmosutil "github.com/evmos/evmos/v14/testutil"
-	testutiltx "github.com/evmos/evmos/v14/testutil/tx"
-	vestingtypes "github.com/evmos/evmos/v14/x/vesting/types"
+	cmn "github.com/evmos/evmos/v15/precompiles/common"
+	"github.com/evmos/evmos/v15/precompiles/testutil"
+	"github.com/evmos/evmos/v15/precompiles/testutil/contracts"
+	"github.com/evmos/evmos/v15/precompiles/vesting"
+	"github.com/evmos/evmos/v15/precompiles/vesting/testdata"
+	evmosutil "github.com/evmos/evmos/v15/testutil"
+	testutiltx "github.com/evmos/evmos/v15/testutil/tx"
+	vestingtypes "github.com/evmos/evmos/v15/x/vesting/types"
 
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 )
 
@@ -228,6 +230,13 @@ var _ = Describe("Interacting with the vesting extension", func() {
 	Context("to fund a clawback vesting account", func() {
 		for _, callType := range callTypes {
 			callType := callType
+
+			BeforeEach(func() {
+				if callType.directCall == false {
+					err = vesting.CreateGenericAuthz(s.ctx, s.app.AuthzKeeper, contractAddr, s.address, vesting.FundVestingAccountMsgURL)
+					Expect(err).ToNot(HaveOccurred(), "error while creating the generic authorization: %v", err)
+				}
+			})
 
 			It(fmt.Sprintf("should fund the vesting when defining only lockup (%s)", callType.name), func() {
 				s.CreateTestClawbackVestingAccount(s.address, toAddr)
@@ -545,6 +554,13 @@ var _ = Describe("Interacting with the vesting extension", func() {
 		for _, callType := range callTypes {
 			callType := callType
 
+			BeforeEach(func() {
+				if callType.directCall == false {
+					err = vesting.CreateGenericAuthz(s.ctx, s.app.AuthzKeeper, contractAddr, s.address, vesting.ClawbackMsgURL)
+					Expect(err).ToNot(HaveOccurred(), "error while creating the generic authorization: %v", err)
+				}
+			})
+
 			It(fmt.Sprintf("should claw back from the vesting when sending as the funder (%s)", callType.name), func() {
 				balancePre := s.app.BankKeeper.GetBalance(s.ctx, toAddr.Bytes(), s.bondDenom)
 				Expect(balancePre.Amount).To(Equal(sdk.NewInt(1100)), "expected different balance after setup")
@@ -675,6 +691,13 @@ var _ = Describe("Interacting with the vesting extension", func() {
 
 		for _, callType := range callTypes {
 			callType := callType
+
+			BeforeEach(func() {
+				if callType.directCall == false {
+					err = vesting.CreateGenericAuthz(s.ctx, s.app.AuthzKeeper, contractAddr, s.address, vesting.UpdateVestingFunderMsgURL)
+					Expect(err).ToNot(HaveOccurred(), "error while creating the generic authorization: %v", err)
+				}
+			})
 
 			It(fmt.Sprintf("should update the vesting funder when sending as the funder (%s)", callType.name), func() {
 				updateFunderArgs := s.BuildCallArgs(callType, contractAddr).

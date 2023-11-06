@@ -4,7 +4,9 @@ import (
 	"math/big"
 	"time"
 
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
+	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -12,10 +14,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	evmostypes "github.com/evmos/evmos/v14/types"
-	evmtypes "github.com/evmos/evmos/v14/x/evm/types"
+	evmostypes "github.com/evmos/evmos/v15/types"
+	evmtypes "github.com/evmos/evmos/v15/x/evm/types"
 
-	"github.com/evmos/evmos/v14/x/incentives/types"
+	"github.com/evmos/evmos/v15/x/incentives/types"
 )
 
 var _ = Describe("Performing EVM transactions", Ordered, func() {
