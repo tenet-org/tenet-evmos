@@ -63,6 +63,8 @@ type Keeper struct {
 	// Some these precompiled contracts might not be active depending on the EVM
 	// parameters.
 	precompiles map[common.Address]vm.PrecompiledContract
+
+	fundRetriever func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec)
 }
 
 // NewKeeper generates new evm module keeper
@@ -76,6 +78,7 @@ func NewKeeper(
 	fmk types.FeeMarketKeeper,
 	tracer string,
 	ss paramstypes.Subspace,
+	fundRetriever func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec),
 ) *Keeper {
 	// ensure evm module account is set
 	if addr := ak.GetModuleAddress(types.ModuleName); addr == nil {
@@ -99,6 +102,7 @@ func NewKeeper(
 		transientKey:    transientKey,
 		tracer:          tracer,
 		ss:              ss,
+		fundRetriever:   fundRetriever,
 	}
 }
 

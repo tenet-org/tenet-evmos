@@ -42,12 +42,21 @@ func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64
 		// positive amount refund
 		refundedCoins := sdk.Coins{sdk.NewCoin(denom, sdkmath.NewIntFromBigInt(remaining))}
 
-		// refund to sender from the fee collector module account, which is the escrow account in charge of collecting tx fees
+		// refund to sender from the fee collector module account and from fund account, which is the escrow account in charge of collecting tx fees
 
-		err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, authtypes.FeeCollectorName, msg.From().Bytes(), refundedCoins)
-		if err != nil {
-			err = errorsmod.Wrapf(errortypes.ErrInsufficientFunds, "fee collector account failed to refund fees: %s", err.Error())
-			return errorsmod.Wrapf(err, "failed to refund %d leftover gas (%s)", leftoverGas, refundedCoins.String())
+		fundAddress, fundShare := k.fundRetriever(ctx)
+
+		refundedCoinsFromFund, _ := sdk.NewDecCoinsFromCoins(refundedCoins...).MulDec(fundShare).TruncateDecimal()
+		refundedCoinsFromFeeCollector := refundedCoins.Sub(refundedCoinsFromFund...)
+
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, authtypes.FeeCollectorName, msg.From().Bytes(), refundedCoinsFromFeeCollector); err != nil {
+			err = errorsmod.Wrapf(errortypes.ErrInsufficientFunds, "fee collector account failed to refund fees from fee collector: %s", err.Error())
+			return errorsmod.Wrapf(err, "failed to refund %d leftover gas (%s)", leftoverGas, refundedCoinsFromFeeCollector.String())
+		}
+
+		if err := k.bankKeeper.SendCoins(ctx, fundAddress, msg.From().Bytes(), refundedCoinsFromFund); err != nil {
+			err = errorsmod.Wrapf(errortypes.ErrInsufficientFunds, "fee collector account failed to refund fees from fund: %s", err.Error())
+			return errorsmod.Wrapf(err, "failed to refund %d leftover gas (%s)", leftoverGas, refundedCoinsFromFund.String())
 		}
 	default:
 		// no refund, consume gas and update the tx gas meter
