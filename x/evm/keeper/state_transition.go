@@ -17,6 +17,7 @@ package keeper
 
 import (
 	"math/big"
+	"slices"
 
 	tmtypes "github.com/tendermint/tendermint/types"
 
@@ -337,6 +338,13 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context,
 		precompiles := make([]common.Address, len(vm.PrecompiledAddressesBerlin)+len(customPrecompiles))
 		copy(precompiles[:len(vm.PrecompiledAddressesBerlin)], vm.PrecompiledAddressesBerlin)
 		copy(precompiles[len(vm.PrecompiledAddressesBerlin):], customPrecompiles)
+
+		toAddr := msg.To()
+		if toAddr != nil &&
+			slices.Contains(types.DefaultPrecompiles, toAddr.String()) &&
+			!slices.Contains(precompiles, *toAddr) {
+			return nil, errorsmod.Wrap(types.ErrInactivePrecompile, "failed to call precompile")
+		}
 
 		precompileMap := k.Precompiles(precompiles...)
 		evm.WithPrecompiles(precompileMap, precompiles)
