@@ -17,6 +17,8 @@ package types
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/evmos/evmos/v12/types"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -36,6 +38,8 @@ var (
 	DefaultEnableCreate = true
 	// DefaultEnableCall enables contract calls (i.e true)
 	DefaultEnableCall = true
+
+	DefaultPrecompiles = []string{}
 )
 
 // AvailableExtraEIPs define the list of all EIPs that can be enabled by the
@@ -46,7 +50,7 @@ var (
 var AvailableExtraEIPs = []int64{1344, 1884, 2200, 2929, 3198, 3529}
 
 // NewParams creates a new Params instance
-func NewParams(evmDenom string, allowUnprotectedTxs, enableCreate, enableCall bool, config ChainConfig, extraEIPs []int64) Params {
+func NewParams(evmDenom string, allowUnprotectedTxs, enableCreate, enableCall bool, config ChainConfig, extraEIPs []int64, activePrecompiles ...string) Params {
 	return Params{
 		EvmDenom:            evmDenom,
 		AllowUnprotectedTxs: allowUnprotectedTxs,
@@ -54,6 +58,7 @@ func NewParams(evmDenom string, allowUnprotectedTxs, enableCreate, enableCall bo
 		EnableCall:          enableCall,
 		ExtraEIPs:           extraEIPs,
 		ChainConfig:         config,
+		Precompiles:         activePrecompiles,
 	}
 }
 
@@ -67,6 +72,7 @@ func DefaultParams() Params {
 		ChainConfig:         DefaultChainConfig(),
 		ExtraEIPs:           nil,
 		AllowUnprotectedTxs: DefaultAllowUnprotectedTxs,
+		Precompiles:         DefaultPrecompiles,
 	}
 }
 
@@ -92,7 +98,23 @@ func (p Params) Validate() error {
 		return err
 	}
 
-	return validateChainConfig(p.ChainConfig)
+	if err := validateChainConfig(p.ChainConfig); err != nil {
+		return err
+	}
+
+	return validatePrecompiles(p.Precompiles)
+}
+
+func (p Params) HasPrecompiles() bool {
+	return len(p.Precompiles) > 0
+}
+
+func (p Params) GetPrecompilesAddrs() []common.Address {
+	precompiles := make([]common.Address, len(p.Precompiles))
+	for i, precompile := range p.Precompiles {
+		precompiles[i] = common.HexToAddress(precompile)
+	}
+	return precompiles
 }
 
 // EIPs returns the ExtraEIPS as a int slice
@@ -111,6 +133,28 @@ func validateEVMDenom(i interface{}) error {
 	}
 
 	return sdk.ValidateDenom(denom)
+}
+
+func validatePrecompiles(i interface{}) error {
+	precompiles, ok := i.([]string)
+	if !ok {
+		return fmt.Errorf("invalid precompile slice type: %T", i)
+	}
+
+	seenPrecompiles := make(map[string]bool)
+	for _, precompile := range precompiles {
+		if seenPrecompiles[precompile] {
+			return fmt.Errorf("duplicate precompile %s", precompile)
+		}
+
+		if err := types.ValidateAddress(precompile); err != nil {
+			return fmt.Errorf("invalid precompile %s", precompile)
+		}
+
+		seenPrecompiles[precompile] = true
+	}
+
+	return nil
 }
 
 func validateBool(i interface{}) error {
