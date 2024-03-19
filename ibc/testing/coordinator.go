@@ -23,9 +23,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	ibctesting "github.com/cosmos/ibc-go/v6/testing"
-	ibchelpers "github.com/cosmos/ibc-go/v6/testing/simapp/helpers"
+	ibctesting "github.com/cosmos/ibc-go/v7/testing"
 	"github.com/evmos/evmos/v12/app"
 	"github.com/stretchr/testify/require"
 )
@@ -187,7 +187,7 @@ func SignAndDeliver(
 	fee sdk.Coins,
 	chainID string, accNums, accSeqs []uint64, expPass bool, priv ...cryptotypes.PrivKey,
 ) (sdk.GasInfo, *sdk.Result, error) {
-	tx, err := ibchelpers.GenTx(
+	tx, err := simtestutil.GenSignedMockTx(
 		txCfg,
 		msgs,
 		fee,

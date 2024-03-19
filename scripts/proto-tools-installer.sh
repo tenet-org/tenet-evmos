@@ -95,6 +95,7 @@ f_install_protoc_gen_gocosmos() {
     fi
     
     go install github.com/regen-network/cosmos-proto/protoc-gen-gocosmos@latest 2>/dev/null
+    go install github.com/cosmos/gogoproto/protoc-gen-gocosmos@latest
     f_print_done
 }
 

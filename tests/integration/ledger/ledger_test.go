@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 
+	"cosmossdk.io/simapp/params"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/cosmos/cosmos-sdk/simapp/params"
 
 	"github.com/evmos/evmos/v12/app"
 	"github.com/evmos/evmos/v12/crypto/hd"
@@ -22,8 +22,6 @@ import (
 	sdktestutilcli "github.com/cosmos/cosmos-sdk/testutil/cli"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bankcli "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
-
-	. "github.com/onsi/ginkgo/v2"
 )
 
 var (
@@ -87,7 +85,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 				out, err := sdktestutilcli.ExecTestCLICmd(clientCtx, cmd, []string{
 					ledgerKey,
 					s.FormatFlag(flags.FlagUseLedger),
-					s.FormatFlag(flags.FlagKeyAlgorithm),
+					s.FormatFlag(flags.FlagKeyType),
 					string(hd.EthSecp256k1Type),
 				})
 
@@ -120,7 +118,7 @@ var _ = Describe("Ledger CLI and keyring functionality: ", func() {
 			cmd.SetArgs([]string{
 				ledgerKey,
 				s.FormatFlag(flags.FlagUseLedger),
-				s.FormatFlag(flags.FlagKeyAlgorithm),
+				s.FormatFlag(flags.FlagKeyType),
 				"eth_secp256k1",
 			})
 			// add ledger key for following tests

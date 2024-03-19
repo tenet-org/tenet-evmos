@@ -13,11 +13,12 @@
 //
 // You should have received a copy of the GNU Lesser General Public License
 // along with the Evmos packages. If not, see https://github.com/evmos/evmos/blob/main/LICENSE
+
 package hd
 
 import (
+	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcutil/hdkeychain"
 	bip39 "github.com/tyler-smith/go-bip39"
 
 	"github.com/ethereum/go-ethereum/accounts"

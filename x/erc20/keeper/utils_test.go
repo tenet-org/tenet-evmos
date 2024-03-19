@@ -13,11 +13,10 @@ import (
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	transfertypes "github.com/cosmos/ibc-go/v6/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v6/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v6/modules/core/04-channel/types"
-	ibcgotesting "github.com/cosmos/ibc-go/v6/testing"
-	ibcgotestinghelpers "github.com/cosmos/ibc-go/v6/testing/simapp/helpers"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	ibcgotesting "github.com/cosmos/ibc-go/v7/testing"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -151,9 +150,6 @@ func (suite *KeeperTestSuite) SetupIBCTest() {
 	suite.Require().NoError(err)
 
 	// s.app.FeeMarketKeeper.SetBaseFee(s.EvmosChain.GetContext(), big.NewInt(1))
-
-	// Increase max gas
-	ibcgotestinghelpers.DefaultGenTxGas = uint64(1_000_000_000)
 
 	// Set block proposer once, so its carried over on the ibc-go-testing suite
 	validators := s.app.StakingKeeper.GetValidators(suite.EvmosChain.GetContext(), 2)
