@@ -404,7 +404,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 	}
 
 	// minus one to get the context of block beginning
-	contextHeight := req.BlockNumber - 1
+	contextHeight := req.BlockNumber
 	if contextHeight < 1 {
 		// 0 is a special value in `ContextWithHeight`
 		contextHeight = 1
@@ -481,7 +481,7 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 	}
 
 	// minus one to get the context of block beginning
-	contextHeight := req.BlockNumber - 1
+	contextHeight := req.BlockNumber
 	if contextHeight < 1 {
 		// 0 is a special value in `ContextWithHeight`
 		contextHeight = 1
