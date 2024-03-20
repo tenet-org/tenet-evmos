@@ -434,6 +434,10 @@ func (k *Keeper) ApplyMessageWithConfig(ctx sdk.Context,
 	minGasMultiplier := k.GetMinGasMultiplier(ctx)
 	minimumGasUsed := gasLimit.Mul(minGasMultiplier)
 
+	if test := minimumGasUsed.TruncateInt(); !test.IsUint64() {
+		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "incorrect minimumGasUsed - %s is not a uint64", test.String())
+	}
+
 	if msg.Gas() < leftoverGas {
 		return nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.Gas(), leftoverGas)
 	}
