@@ -184,7 +184,7 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 	}
 	ctxWithHeight := rpctypes.ContextWithHeight(int64(contextHeight))
 
-	cp, err := b.clientCtx.Client.(tmrpcclient.Client).ConsensusParams(b.ctx, &b.Block.Height)
+	cp, err := b.clientCtx.Client.(tmrpcclient.Client).ConsensusParams(b.ctx, &block.Block.Height)
 	if err != nil {
 		return nil, err
 	}
