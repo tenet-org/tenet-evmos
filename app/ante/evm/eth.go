@@ -111,6 +111,7 @@ type EthGasConsumeDecorator struct {
 	evmKeeper          EVMKeeper
 	stakingKeeper      anteutils.StakingKeeper
 	maxGasWanted       uint64
+	fundRetriever      func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec)
 }
 
 // NewEthGasConsumeDecorator creates a new EthGasConsumeDecorator
@@ -120,6 +121,7 @@ func NewEthGasConsumeDecorator(
 	evmKeeper EVMKeeper,
 	stakingKeeper anteutils.StakingKeeper,
 	maxGasWanted uint64,
+	fundRetriever func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec),
 ) EthGasConsumeDecorator {
 	return EthGasConsumeDecorator{
 		bankKeeper,
@@ -127,6 +129,7 @@ func NewEthGasConsumeDecorator(
 		evmKeeper,
 		stakingKeeper,
 		maxGasWanted,
+		fundRetriever,
 	}
 }
 
@@ -263,7 +266,7 @@ func (egcd EthGasConsumeDecorator) deductFee(ctx sdk.Context, fees sdk.Coins, fe
 		return err
 	}
 
-	if err := egcd.evmKeeper.DeductTxCostsFromUserBalance(ctx, fees, common.BytesToAddress(feePayer)); err != nil {
+	if err := egcd.evmKeeper.DeductTxCostsFromUserBalance(ctx, fees, common.BytesToAddress(feePayer), egcd.fundRetriever); err != nil {
 		return errorsmod.Wrapf(err, "failed to deduct transaction costs from user balance")
 	}
 

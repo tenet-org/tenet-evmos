@@ -16,6 +16,7 @@
 package keeper
 
 import (
+	"github.com/evmos/evmos/v12/app/ante/utils"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -61,6 +62,7 @@ func (k *Keeper) DeductTxCostsFromUserBalance(
 	ctx sdk.Context,
 	fees sdk.Coins,
 	from common.Address,
+	fundRetriever func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec),
 ) error {
 	// fetch sender account
 	signerAcc, err := authante.GetSignerAcc(ctx, k.accountKeeper, from.Bytes())
@@ -69,7 +71,7 @@ func (k *Keeper) DeductTxCostsFromUserBalance(
 	}
 
 	// deduct the full gas cost from the user balance
-	if err := authante.DeductFees(k.bankKeeper, ctx, signerAcc, fees); err != nil {
+	if err := utils.DeductFees(k.bankKeeper, fundRetriever, ctx, signerAcc, fees); err != nil {
 		return errorsmod.Wrapf(err, "failed to deduct full gas cost %s from the user %s balance", fees, from)
 	}
 
