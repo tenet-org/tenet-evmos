@@ -1,5 +1,18 @@
-// Copyright Tharsis Labs Ltd.(Evmos)
-// SPDX-License-Identifier:ENCL-1.0(https://github.com/evmos/evmos/blob/main/LICENSE)
+// Copyright 2022 Evmos Foundation
+// This file is part of the Evmos Network packages.
+//
+// Evmos is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The Evmos packages are distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the Evmos packages. If not, see https://github.com/evmos/evmos/blob/main/LICENSE
 
 package types
 
@@ -111,8 +124,8 @@ func (va ClawbackVestingAccount) Validate() error {
 		return errors.New("lockup schedule extends beyond account end time")
 	}
 
-	// use CoinEq to prevent panic
-	if !CoinEq(lockupCoins, va.OriginalVesting) {
+	// use coinEq to prevent panic
+	if !coinEq(lockupCoins, va.OriginalVesting) {
 		return errors.New("original vesting coins does not match the sum of all coins in lockup periods")
 	}
 
@@ -128,7 +141,7 @@ func (va ClawbackVestingAccount) Validate() error {
 		return errors.New("vesting schedule exteds beyond account end time")
 	}
 
-	if !CoinEq(vestingCoins, va.OriginalVesting) {
+	if !coinEq(vestingCoins, va.OriginalVesting) {
 		return errors.New("original vesting coins does not match the sum of all coins in vesting periods")
 	}
 
@@ -170,6 +183,13 @@ func (va ClawbackVestingAccount) GetPassedPeriodCount(blockTime time.Time) int {
 func (va ClawbackVestingAccount) ComputeClawback(
 	clawbackTime int64,
 ) (ClawbackVestingAccount, sdk.Coins) {
+	// if the clawback time is before the vesting start time, perform a no-op
+	// as there is nothing to clawback
+	// NOTE: error must be checked during message execution
+	if clawbackTime < va.GetStartTime() {
+		return va, sdk.Coins{}
+	}
+
 	totalVested := va.GetVestedOnly(time.Unix(clawbackTime, 0))
 	totalUnvested := va.GetUnvestedOnly(time.Unix(clawbackTime, 0))
 
@@ -200,7 +220,7 @@ func (va ClawbackVestingAccount) ComputeClawback(
 	return va, totalUnvested
 }
 
-// HasLockedCoins returns true if the block time has not passed all clawback
+// HasLockedCoins returns true if the blocktime has not passed all clawback
 // account's lockup periods
 func (va ClawbackVestingAccount) HasLockedCoins(blockTime time.Time) bool {
 	return !va.GetLockedOnly(blockTime).IsZero()

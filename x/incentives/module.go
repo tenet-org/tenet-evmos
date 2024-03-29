@@ -1,5 +1,18 @@
-// Copyright Tharsis Labs Ltd.(Evmos)
-// SPDX-License-Identifier:ENCL-1.0(https://github.com/evmos/evmos/blob/main/LICENSE)
+// Copyright 2022 Evmos Foundation
+// This file is part of the Evmos Network packages.
+//
+// Evmos is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The Evmos packages are distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the Evmos packages. If not, see https://github.com/evmos/evmos/blob/main/LICENSE
 
 package incentives
 
@@ -7,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -24,9 +36,6 @@ import (
 	"github.com/evmos/evmos/v15/x/incentives/keeper"
 	"github.com/evmos/evmos/v15/x/incentives/types"
 )
-
-// consensusVersion defines the current x/incentives module consensus version.
-var consensusVersion uint64 = 2
 
 // type check to ensure the interface is properly implemented
 var (
@@ -47,7 +56,7 @@ func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {}
 
 // ConsensusVersion returns the consensus state-breaking version for the module.
 func (AppModuleBasic) ConsensusVersion() uint64 {
-	return consensusVersion
+	return 2
 }
 
 // RegisterInterfaces registers interfaces and implementations of the incentives
@@ -133,6 +142,13 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	}
 }
 
+func (am AppModule) BeginBlock(_ sdk.Context, _ abci.RequestBeginBlock) {
+}
+
+func (am AppModule) EndBlock(_ sdk.Context, _ abci.RequestEndBlock) []abci.ValidatorUpdate {
+	return []abci.ValidatorUpdate{}
+}
+
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {
 	var genesisState types.GenesisState
 
@@ -147,6 +163,10 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 }
 
 func (am AppModule) GenerateGenesisState(_ *module.SimulationState) {
+}
+
+func (am AppModule) ProposalContents(_ module.SimulationState) []simtypes.WeightedProposalContent {
+	return []simtypes.WeightedProposalContent{}
 }
 
 func (am AppModule) RegisterStoreDecoder(_ sdk.StoreDecoderRegistry) {

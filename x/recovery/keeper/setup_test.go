@@ -4,9 +4,7 @@ import (
 	"testing"
 	"time"
 
-	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/stretchr/testify/suite"
@@ -45,10 +43,9 @@ func (suite *KeeperTestSuite) SetupTest() {
 	// consensus key
 	consAddress := sdk.ConsAddress(utiltx.GenerateAddress().Bytes())
 
-	chainID := utils.TestnetChainID + "-1"
-	suite.app = app.Setup(false, feemarkettypes.DefaultGenesisState(), chainID)
+	suite.app = app.Setup(false, feemarkettypes.DefaultGenesisState())
 	header := testutil.NewHeader(
-		1, time.Now().UTC(), chainID, consAddress, nil, nil,
+		1, time.Now().UTC(), "evmos_9001-1", consAddress, nil, nil,
 	)
 	suite.ctx = suite.app.BaseApp.NewContext(false, header)
 
@@ -63,8 +60,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 
 	stakingParams := suite.app.StakingKeeper.GetParams(suite.ctx)
 	stakingParams.BondDenom = utils.BaseDenom
-	err = suite.app.StakingKeeper.SetParams(suite.ctx, stakingParams)
-	suite.Require().NoError(err)
+	suite.app.StakingKeeper.SetParams(suite.ctx, stakingParams)
 }
 
 func TestKeeperTestSuite(t *testing.T) {

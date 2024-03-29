@@ -1,5 +1,18 @@
-// Copyright Tharsis Labs Ltd.(Evmos)
-// SPDX-License-Identifier:ENCL-1.0(https://github.com/evmos/evmos/blob/main/LICENSE)
+// Copyright 2022 Evmos Foundation
+// This file is part of the Evmos Network packages.
+//
+// Evmos is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The Evmos packages are distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the Evmos packages. If not, see https://github.com/evmos/evmos/blob/main/LICENSE
 
 package types
 
@@ -8,13 +21,13 @@ import (
 	sdkvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 )
 
-// ReadSchedule returns the value of a schedule at readTime.
-//
 // A "schedule" is an increasing step function of Coins over time. It's
 // specified as an absolute start time and a sequence of relative periods, with
 // each step at the end of a period. A schedule may also give the time and total
 // value at the last step, which can speed evaluation of the step function after
 // the last step.
+//
+// ReadSchedule returns the value of a schedule at readTime.
 func ReadSchedule(
 	startTime, endTime int64,
 	periods sdkvesting.Periods,
@@ -81,45 +94,28 @@ func ReadPastPeriodCount(
 	return passedPeriods
 }
 
-// DisjunctPeriods returns the union of two vesting period schedules.
-// The returned schedule is the union of the vesting events.
-// Simultaneous events are combined into a single event.
-//
-// Input schedules A and B are defined by their start times and periods.
-// From this, the combined schedule with new start and end times,
-// as well as the joined periods.
+// DisjunctPeriods returns the union of two vesting period schedules. The
+// returned schedule is the union of the vesting events, with simultaneous
+// events combined into a single event. Input schedules P and Q are defined by
+// their start times and periods. Returns new start time, new end time, and
+// merged vesting events, relative to the new start time.
 func DisjunctPeriods(
 	startTimePeriodsA, startTimePeriodsB int64,
 	periodsA, periodsB sdkvesting.Periods,
 ) (startTime, endTime int64, periods sdkvesting.Periods) {
-	var (
-		// These time vars store the time of the last merged event for each schedule.
-		// When processing the next event in a schedule, the times are always relative to the previous event.
-		timePeriodA  = startTimePeriodsA
-		timePeriodsB = startTimePeriodsB
+	timePeriodA := startTimePeriodsA  // time of last merged periods A event, next p event is relative to this time
+	timePeriodsB := startTimePeriodsB // time of last merged periods B event, next periodsB event is relative to this time
 
-		// Initialize the period indices for both schedules.
-		// These will be used to keep track of the processed events in each schedule.
-		idxPeriodsA = 0
-		idxPeriodsB = 0
+	idxPeriodsA := 0 // periods A indexes before this have been merged
+	idxPeriodsB := 0 // periods B indexes before this have been merged
 
-		// Store the lengths of both schedules before adjusting any periods.
-		lenPeriodsA = len(periodsA)
-		lenPeriodsB = len(periodsB)
-	)
+	lenPeriodsA := len(periodsA)
+	lenPeriodsB := len(periodsB)
+	startTime = Min64(startTimePeriodsA, startTimePeriodsB) // we pick the earlier time
+	endTime = startTime                                     // time of last merged event, or the start time
+	periods = sdkvesting.Periods{}                          // merged periods
 
-	// The start time of the resulting schedule is determined
-	// by the earlier of the two start times.
-	startTime = Min64(startTimePeriodsA, startTimePeriodsB)
-
-	// The end time is initially set to the start time. But will be updated as
-	// the schedule events are processed.
-	endTime = startTime
-
-	// emit creates a new period, that spans the amount of seconds of the length
-	// of the currently processed period minus the most recent endTime
-	// (which is the end time of the last processed event).
-	// This newly created period is appended to the slice of resulting periods.
+	// emit adds an output period and updates the last event time
 	emit := func(nextTime int64, amount sdk.Coins) {
 		period := sdkvesting.Period{
 			Length: nextTime - endTime,
@@ -129,33 +125,21 @@ func DisjunctPeriods(
 		endTime = nextTime
 	}
 
-	// consumeA processes the next period from schedule A.
-	//
-	// It appends the resulting periods with a new period of the same amount,
-	// spanning the length of this processed period minus the most recent endTime.
-	// It increments the period index and updates the last event time for A.
+	// consumeA emits the next period from A, updating indexes
 	consumeA := func(nextPeriodA int64) {
 		emit(nextPeriodA, periodsA[idxPeriodsA].Amount)
 		timePeriodA = nextPeriodA
 		idxPeriodsA++
 	}
 
-	// consumeB processes the next period from schedule B.
-	//
-	// It appends the resulting periods with a new period of the same amount,
-	// spanning the length of this processed period minus the most recent endTime.
-	// It increments the period index and updates the last event time for B.
+	// consumeB emits the next period from B, updating indexes
 	consumeB := func(nextPeriodB int64) {
 		emit(nextPeriodB, periodsB[idxPeriodsB].Amount)
 		timePeriodsB = nextPeriodB
 		idxPeriodsB++
 	}
 
-	// consumeBoth process the next periods from both schedules A and B.
-	//
-	// It adds the vesting amounts of both periods and appends the resulting periods with,
-	// with a corresponding event of the length of the processed event.
-	// It increments the period indices and updates the last event times for both schedules.
+	// consumeBoth emits a merge of the next periods from periods A and B, updating indexes
 	consumeBoth := func(nextTime int64) {
 		emit(nextTime, periodsA[idxPeriodsA].Amount.Add(periodsB[idxPeriodsB].Amount...))
 		timePeriodA = nextTime
@@ -164,29 +148,20 @@ func DisjunctPeriods(
 		idxPeriodsB++
 	}
 
-	// Processing the schedules
-	//
-	// While there are more events in both schedules, handle the next one, merge
+	// while there are more events in both schedules, handle the next one, merge
 	// if concurrent
 	for idxPeriodsA < lenPeriodsA && idxPeriodsB < lenPeriodsB {
-		endTimeOfNextPeriodA := timePeriodA + periodsA[idxPeriodsA].Length  // next periodsA event in absolute time
-		endTimeOfNextPeriodB := timePeriodsB + periodsB[idxPeriodsB].Length // next periodsB event in absolute time
+		nextPeriodA := timePeriodA + periodsA[idxPeriodsA].Length  // next periodsA event in absolute time
+		nextPeriodB := timePeriodsB + periodsB[idxPeriodsB].Length // next periodsB event in absolute time
 		switch {
-		case endTimeOfNextPeriodA < endTimeOfNextPeriodB:
-			// if the next event in schedule A is before the next event in schedule B,
-			// process the next event in schedule A
-			consumeA(endTimeOfNextPeriodA)
-		case endTimeOfNextPeriodA > endTimeOfNextPeriodB:
-			// if the next event in schedule B is before the next event in schedule A,
-			// process the next event in schedule B
-			consumeB(endTimeOfNextPeriodB)
+		case nextPeriodA < nextPeriodB:
+			consumeA(nextPeriodA)
+		case nextPeriodA > nextPeriodB:
+			consumeB(nextPeriodB)
 		default:
-			// if the next event in schedule A and B are at the same time,
-			// process both events at the same time
-			consumeBoth(endTimeOfNextPeriodA)
+			consumeBoth(nextPeriodA)
 		}
 	}
-
 	// consume remaining events in schedule Periods A
 	for idxPeriodsA < lenPeriodsA {
 		nextPeriodA := timePeriodA + periodsA[idxPeriodsA].Length
@@ -201,90 +176,63 @@ func DisjunctPeriods(
 	return startTime, endTime, periods
 }
 
-// ConjunctPeriods returns the combination of two period schedules.
-// The resulting schedule is the result is the minimum of the two schedules.
-// It returns the resulting periods start and end times as well as the conjuncted
-// periods.
+// ConjunctPeriods returns the combination of two period schedules where the
+// result is the minimum of the two schedules.
+// It returns the resulting periods start and end times as well as the resulting
+// conjunction periods.
+// TODO: rename and add comprehensive comments, this is currently not maintainable
 func ConjunctPeriods(
 	startTimePeriodA, startTimePeriodB int64,
 	periodsA, periodsB sdkvesting.Periods,
 ) (startTime, endTime int64, conjunctionPeriods sdkvesting.Periods) {
-	var (
-		// These amount variables are keeping track of the amounts of coins in the different
-		// vesting schedules.
-		resultingAmount, totalAmountPeriodsA, totalAmountPeriodsB sdk.Coins
-
-		// These time vars store the time of the last merged event for each schedule.
-		// When processing the next event in a schedule, the times are always relative to the previous event.
-		timePeriodsA = startTimePeriodA
-		timePeriodsB = startTimePeriodB
-
-		// Initialize the period indices for both schedules.
-		// These will be used to keep track of the processed events in each schedule.
-		idxPeriodsA = 0
-		idxPeriodsB = 0
-
-		// Store the lengths of both schedules before adjusting any periods.
-		lenPeriodsA = len(periodsA)
-		lenPeriodsB = len(periodsB)
-	)
-
-	// Initialize conjunction peridos
-	conjunctionPeriods = sdkvesting.Periods{}
-
-	// The start time of the resulting schedule is determined
-	// by the earlier of the two start times.
+	timePeriodsA := startTimePeriodA
+	timePeriodsB := startTimePeriodB
+	idxPeriodsA := 0
+	idxPeriodsB := 0
+	lenPeriodsA := len(periodsA)
+	lenPeriodsB := len(periodsB)
 	startTime = Min64(startTimePeriodA, startTimePeriodB)
-	endTimeOfLastProcessedPeriod := startTime
+	time := startTime
 
-	// emit creates a new period, that spans the amount of seconds between
-	// the end of the processed period and the most recent stored time value
-	// (=end of the last processed period).
-	// This time value is updated to the current periods length.
-	emit := func(endTimeOfCurrentPeriod int64, coins sdk.Coins) {
+	conjunctionPeriods = sdkvesting.Periods{}
+	amount := sdk.Coins{}
+
+	totalAmountPeriodsA := amount
+	totalAmountPeriodsB := amount
+
+	// emit adds an output period and updates the last event time
+	emit := func(nextTime int64, coins sdk.Coins) {
 		period := sdkvesting.Period{
-			Length: endTimeOfCurrentPeriod - endTimeOfLastProcessedPeriod,
+			Length: nextTime - time,
 			Amount: coins,
 		}
 		conjunctionPeriods = append(conjunctionPeriods, period)
-		endTimeOfLastProcessedPeriod = endTimeOfCurrentPeriod
-		resultingAmount = resultingAmount.Add(coins...)
+		time = nextTime
+		amount = amount.Add(coins...)
 	}
 
-	// consumeA processes the next period from schedule A.
-	//
-	// It adds the amount of the processed period to the total processed amount for all periods of A.
-	// It then calculates the minimum of the total amount of schedules A and B.
-	// If the minimum of A and B is smaller than the resulting amount tallied so far,
-	// it creates a new Period containing the difference between the minimum and the resulting amount.
-	//
-	// Additionally, it increments the period index and updates the last event time for schedule A.
-	consumeA := func(endTimeOfCurrentPeriod int64) {
+	// consumeA processes the next event in P and emits an event
+	// if the minimum of P and Q changes
+	consumeA := func(nextTime int64) {
 		totalAmountPeriodsA = totalAmountPeriodsA.Add(periodsA[idxPeriodsA].Amount...)
 		min := totalAmountPeriodsA.Min(totalAmountPeriodsB)
-		if resultingAmount.IsAllLTE(min) {
-			diff := min.Sub(resultingAmount...)
+		if amount.IsAllLTE(min) {
+			diff := min.Sub(amount...)
 			if !diff.IsZero() {
-				emit(endTimeOfCurrentPeriod, diff)
+				emit(nextTime, diff)
 			}
 		}
-		timePeriodsA = endTimeOfCurrentPeriod
+		timePeriodsA = nextTime
 		idxPeriodsA++
 	}
 
-	// consumeB processes the next period from schedule B.
-	//
-	// It adds the amount of the processed period to the total processed amount for all periods of B.
-	// It then calculates the minimum of the total amount of schedules A and B.
-	// If the minimum of A and B is smaller than the resulting amount tallied so far,
-	// it creates a new Period containing the difference between the minimum and the resulting amount.
-	//
-	// Additionally, it increments the period index and updates the last event time for schedule B.
+	// consumeB processes the next event in Q and emits an event
+	// if the minimum of P and Q changes
 	consumeB := func(nextTime int64) {
 		totalAmountPeriodsB = totalAmountPeriodsB.Add(periodsB[idxPeriodsB].Amount...)
 		min := totalAmountPeriodsA.Min(totalAmountPeriodsB)
-		if resultingAmount.IsAllLTE(min) {
-			diff := min.Sub(resultingAmount...)
+		if amount.IsAllLTE(min) {
+			diff := min.Sub(amount...)
 			if !diff.IsZero() {
 				emit(nextTime, diff)
 			}
@@ -293,20 +241,14 @@ func ConjunctPeriods(
 		idxPeriodsB++
 	}
 
-	// consumeBoth processes the next periods from both schedules A and B.
-	//
-	// It adds the amount of the processed period to the total processed amount for all periods of A and B.
-	// It then calculates the minimum of the total amount of schedules A and B.
-	// If the minimum of A and B is smaller than the resulting amount tallied so far,
-	// it creates a new Period containing the difference between the minimum and the resulting amount.
-	//
-	// Additionally, it increments the period indices and updates the last event times for both schedules.
+	// consumeBoth processes simultaneous events in P and Q and emits an
+	// event if the minimum of P and Q changes
 	consumeBoth := func(nextTime int64) {
 		totalAmountPeriodsA = totalAmountPeriodsA.Add(periodsA[idxPeriodsA].Amount...)
 		totalAmountPeriodsB = totalAmountPeriodsB.Add(periodsB[idxPeriodsB].Amount...)
 		min := totalAmountPeriodsA.Min(totalAmountPeriodsB)
-		if resultingAmount.IsAllLTE(min) {
-			diff := min.Sub(resultingAmount...)
+		if amount.IsAllLTE(min) {
+			diff := min.Sub(amount...)
 			if !diff.IsZero() {
 				emit(nextTime, diff)
 			}
@@ -317,42 +259,34 @@ func ConjunctPeriods(
 		idxPeriodsB++
 	}
 
-	// Processing the schedules
-	//
-	// While there are more events in both schedules, handle the next one, merge
-	// if concurrent
+	// while there are events left in both schedules, process the next one
 	for idxPeriodsA < lenPeriodsA && idxPeriodsB < lenPeriodsB {
 		nextPeriodA := timePeriodsA + periodsA[idxPeriodsA].Length // next periods A event in absolute time
 		nextPeriodB := timePeriodsB + periodsB[idxPeriodsB].Length // next periods B event in absolute time
 		switch {
 		case nextPeriodA < nextPeriodB:
-			// if the next event in schedule A is before the next event in schedule B,
-			// process the next event in schedule A
 			consumeA(nextPeriodA)
 		case nextPeriodA > nextPeriodB:
-			// if the next event in schedule B is before the next event in schedule A,
-			// process the next event in schedule B
 			consumeB(nextPeriodB)
 		default:
-			// if the next event in schedule A and B are at the same time,
-			// process both events at the same time
 			consumeBoth(nextPeriodA)
 		}
 	}
 
-	// consume remaining events in schedule A
+	// consume remaining events in schedule P
 	for idxPeriodsA < lenPeriodsA {
 		nextPeriodA := timePeriodsA + periodsA[idxPeriodsA].Length
 		consumeA(nextPeriodA)
 	}
 
-	// consume remaining events in schedule B
+	// consume remaining events in schedule Q
 	for idxPeriodsB < lenPeriodsB {
 		nextPeriodB := timePeriodsB + periodsB[idxPeriodsB].Length
 		consumeB(nextPeriodB)
 	}
 
-	return startTime, endTimeOfLastProcessedPeriod, conjunctionPeriods
+	endTime = time
+	return startTime, endTime, conjunctionPeriods
 }
 
 // AlignSchedules extends the first period's length to align the two given periods

@@ -39,10 +39,9 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 	require.NoError(t, err)
 	consAddress := sdk.ConsAddress(privCons.PubKey().Address())
 
-	chainID := utils.TestnetChainID + "-1"
-	suite.app = app.Setup(false, feemarkettypes.DefaultGenesisState(), chainID)
+	suite.app = app.Setup(false, feemarkettypes.DefaultGenesisState())
 	header := testutil.NewHeader(
-		1, time.Now().UTC(), chainID, consAddress, nil, nil,
+		1, time.Now().UTC(), "evmos_9001-1", consAddress, nil, nil,
 	)
 	suite.ctx = suite.app.BaseApp.NewContext(false, header)
 
@@ -61,15 +60,14 @@ func (suite *KeeperTestSuite) DoSetupTest(t require.TestingT) {
 
 	stakingParams := suite.app.StakingKeeper.GetParams(suite.ctx)
 	stakingParams.BondDenom = params.GetClaimsDenom()
-	err = suite.app.StakingKeeper.SetParams(suite.ctx, stakingParams)
-	require.NoError(t, err)
+	suite.app.StakingKeeper.SetParams(suite.ctx, stakingParams)
 
 	// Set Validator
 	valAddr := sdk.ValAddress(suite.address.Bytes())
 	validator, err := stakingtypes.NewValidator(valAddr, privCons.PubKey(), stakingtypes.Description{})
 	require.NoError(t, err)
-	validator = stakingkeeper.TestingUpdateValidator(&suite.app.StakingKeeper, suite.ctx, validator, true)
-	err = suite.app.StakingKeeper.Hooks().AfterValidatorCreated(suite.ctx, validator.GetOperator())
+	validator = stakingkeeper.TestingUpdateValidator(suite.app.StakingKeeper, suite.ctx, validator, true)
+	err = suite.app.StakingKeeper.AfterValidatorCreated(suite.ctx, validator.GetOperator())
 	require.NoError(t, err)
 	err = suite.app.StakingKeeper.SetValidatorByConsAddr(suite.ctx, validator)
 	require.NoError(t, err)
@@ -96,7 +94,7 @@ func (suite *KeeperTestSuite) Commit() {
 // Commit commits a block at a given time.
 func (suite *KeeperTestSuite) CommitAfter(t time.Duration) {
 	var err error
-	suite.ctx, err = testutil.CommitAndCreateNewCtx(suite.ctx, suite.app, t, nil)
+	suite.ctx, err = testutil.Commit(suite.ctx, suite.app, t, nil)
 	suite.Require().NoError(err)
 
 	queryHelper := baseapp.NewQueryServerTestHelper(suite.ctx, suite.app.InterfaceRegistry())
@@ -130,7 +128,7 @@ func govProposal(priv *ethsecp256k1.PrivKey) (uint64, error) {
 		"Test", "TTT", uint8(18),
 	)
 	s.Require().NoError(err)
-	s.ctx, err = testutil.CommitAndCreateNewCtx(s.ctx, s.app, time.Second*0, nil)
+	s.ctx, err = testutil.Commit(s.ctx, s.app, time.Second*0, nil)
 	s.Require().NoError(err)
 	content := incentivestypes.NewRegisterIncentiveProposal(
 		"test",

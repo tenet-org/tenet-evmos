@@ -34,11 +34,10 @@ func (suite *GenesisTestSuite) SetupTest() {
 	// consensus key
 	consAddress := sdk.ConsAddress(utiltx.GenerateAddress().Bytes())
 
-	chainID := utils.TestnetChainID + "-1"
-	suite.app = app.Setup(false, feemarkettypes.DefaultGenesisState(), chainID)
+	suite.app = app.Setup(false, feemarkettypes.DefaultGenesisState())
 	suite.ctx = suite.app.BaseApp.NewContext(false, tmproto.Header{
 		Height:          1,
-		ChainID:         chainID,
+		ChainID:         utils.TestnetChainID + "-1",
 		Time:            time.Now().UTC(),
 		ProposerAddress: consAddress.Bytes(),
 
@@ -68,8 +67,7 @@ func (suite *GenesisTestSuite) SetupTest() {
 
 	stakingParams := suite.app.StakingKeeper.GetParams(suite.ctx)
 	stakingParams.BondDenom = utils.BaseDenom
-	err = suite.app.StakingKeeper.SetParams(suite.ctx, stakingParams)
-	suite.Require().NoError(err)
+	suite.app.StakingKeeper.SetParams(suite.ctx, stakingParams)
 
 	suite.genesis = *types.DefaultGenesis()
 	suite.genesis.Params.AirdropStartTime = suite.ctx.BlockTime()

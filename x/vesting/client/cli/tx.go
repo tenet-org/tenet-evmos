@@ -1,37 +1,44 @@
-// Copyright Tharsis Labs Ltd.(Evmos)
-// SPDX-License-Identifier:ENCL-1.0(https://github.com/evmos/evmos/blob/main/LICENSE)
+// Copyright 2022 Evmos Foundation
+// This file is part of the Evmos Network packages.
+//
+// Evmos is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The Evmos packages are distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the Evmos packages. If not, see https://github.com/evmos/evmos/blob/main/LICENSE
 
 package cli
 
 import (
 	"fmt"
-	"strconv"
-	"time"
-
 	"github.com/spf13/cobra"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/version"
-	sdkvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
-	"github.com/cosmos/cosmos-sdk/x/gov/client/cli"
-	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
-
 	"github.com/evmos/evmos/v15/x/vesting/types"
 )
 
 // Transaction command flags
 const (
+	FlagDelayed  = "delayed"
 	FlagDest     = "dest"
 	FlagLockup   = "lockup"
+	FlagMerge    = "merge"
 	FlagVesting  = "vesting"
 	FlagClawback = "clawback"
 	FlagFunder   = "funder"
 )
 
-// NewTxCmd returns a root CLI command handler for vesting
+// NewTxCmd returns a root CLI command handler for certain modules/vesting
 // transaction commands.
 func NewTxCmd() *cobra.Command {
 	txCmd := &cobra.Command{
@@ -44,7 +51,6 @@ func NewTxCmd() *cobra.Command {
 
 	txCmd.AddCommand(
 		NewMsgCreateClawbackVestingAccountCmd(),
-		NewMsgFundVestingAccountCmd(),
 		NewMsgClawbackCmd(),
 		NewMsgUpdateVestingFunderCmd(),
 		NewMsgConvertVestingAccountCmd(),
@@ -54,49 +60,11 @@ func NewTxCmd() *cobra.Command {
 }
 
 // NewMsgCreateClawbackVestingAccountCmd returns a CLI command handler for creating a
-// clawback vesting account.
+// MsgCreateClawbackVestingAccount transaction.
 func NewMsgCreateClawbackVestingAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create-clawback-vesting-account FUNDER_ADDRESS ENABLE_GOV_CLAWBACK",
-		Short: "Create a new vesting account at the address of the sender with a designated funder.",
-		Long: `A new clawback vesting account is created for the sender account, if it is not already of such type.
-Only the designated funder will be able to define lockup and vesting schedules and has to do so
-using the fund-vesting-account subcommand. Clawback via governance is enabled through the second argument.`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			clientCtx, err := client.GetClientTxContext(cmd)
-			if err != nil {
-				return err
-			}
-
-			funder, err := sdk.AccAddressFromBech32(args[0])
-			if err != nil {
-				return err
-			}
-
-			enableGovClawback, err := strconv.ParseBool(args[1])
-			if err != nil {
-				return err
-			}
-
-			msg := types.NewMsgCreateClawbackVestingAccount(funder, clientCtx.GetFromAddress(), enableGovClawback)
-			if err := msg.ValidateBasic(); err != nil {
-				return err
-			}
-
-			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
-		},
-	}
-
-	flags.AddTxFlagsToCmd(cmd)
-	return cmd
-}
-
-// NewMsgFundVestingAccountCmd returns a CLI command handler for funding a clawback vesting account.
-func NewMsgFundVestingAccountCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "fund-vesting-account TO_ADDRESS",
-		Short: "Fund a vesting account with an allocation of tokens.",
+		Use:   "create-clawback-vesting-account TO_ADDRESS",
+		Short: "Create a new vesting account funded with an allocation of tokens, subject to clawback.",
 		Long: `Must provide a lockup periods file (--lockup), a vesting periods file (--vesting), or both.
 If both files are given, they must describe schedules for the same total amount.
 If one file is omitted, it will default to a schedule that immediately unlocks or vests the entire amount.
@@ -122,10 +90,6 @@ with a start time and an array of coins strings and durations relative to the st
 }`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var (
-				lockupStart, vestingStart     int64
-				lockupPeriods, vestingPeriods sdkvesting.Periods
-			)
 
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
@@ -137,27 +101,7 @@ with a start time and an array of coins strings and durations relative to the st
 				return err
 			}
 
-			lockupFile, _ := cmd.Flags().GetString(FlagLockup)
-			vestingFile, _ := cmd.Flags().GetString(FlagVesting)
-			if lockupFile == "" && vestingFile == "" {
-				return fmt.Errorf("must specify at least one of %s or %s", FlagLockup, FlagVesting)
-			}
-			if lockupFile != "" {
-				lockupStart, lockupPeriods, err = ReadScheduleFile(lockupFile)
-				if err != nil {
-					return err
-				}
-			}
-			if vestingFile != "" {
-				vestingStart, vestingPeriods, err = ReadScheduleFile(vestingFile)
-				if err != nil {
-					return err
-				}
-			}
-
-			commonStart, _ := types.AlignSchedules(lockupStart, vestingStart, lockupPeriods, vestingPeriods)
-
-			msg := types.NewMsgFundVestingAccount(clientCtx.GetFromAddress(), toAddr, time.Unix(commonStart, 0), lockupPeriods, vestingPeriods)
+			msg := types.NewMsgCreateClawbackVestingAccount(clientCtx.GetFromAddress(), toAddr)
 			if err := msg.ValidateBasic(); err != nil {
 				return err
 			}
@@ -166,13 +110,15 @@ with a start time and an array of coins strings and durations relative to the st
 		},
 	}
 
+	cmd.Flags().Bool(FlagMerge, false, "Merge new amount and schedule with existing ClawbackVestingAccount, if any")
 	cmd.Flags().String(FlagLockup, "", "path to file containing unlocking periods")
 	cmd.Flags().String(FlagVesting, "", "path to file containing vesting periods")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
 
-// NewMsgClawbackCmd returns a CLI command handler for clawing back unvested funds.
+// NewMsgClawbackCmd returns a CLI command handler for creating a
+// MsgClawback transaction.
 func NewMsgClawbackCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clawback ADDRESS",
@@ -253,8 +199,8 @@ func NewMsgUpdateVestingFunderCmd() *cobra.Command {
 	return cmd
 }
 
-// NewMsgConvertVestingAccountCmd returns a CLI command handler for converting
-// a clawback vesting account into a non-vesting account.
+// NewMsgConvertVestingAccountCmd returns a CLI command handler for creating a
+// MsgConvertVestingAccount transaction.
 func NewMsgConvertVestingAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "convert VESTING_ACCOUNT_ADDRESS",
@@ -283,91 +229,5 @@ func NewMsgConvertVestingAccountCmd() *cobra.Command {
 		},
 	}
 	flags.AddTxFlagsToCmd(cmd)
-	return cmd
-}
-
-// NewClawbackProposalCmd implements the command to submit
-// a proposal to clawback funds from a specified vesting account,
-// that has this functionality enabled.
-//
-//nolint:staticcheck
-func NewClawbackProposalCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "clawback ADDRESS [DEST_ADDRESS]",
-		Args:  cobra.RangeArgs(1, 2),
-		Short: "Submit a proposal to clawback funds from a ClawbackVestingAccount",
-		Long:  "Submit a proposal to clawback the tokens from a ClawbackVestingAccount that has this functionality enabled.",
-		Example: fmt.Sprintf(
-			`$ %s tx gov submit-legacy-proposal clawback <address> \
---from=<key_or_address> \
---title=<proposal_title> \
---description=<proposal_description> \
---deposit=<deposit>`,
-			version.AppName,
-		),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			clientCtx, err := client.GetClientTxContext(cmd)
-			if err != nil {
-				return err
-			}
-
-			title, err := cmd.Flags().GetString(cli.FlagTitle)
-			if err != nil {
-				return err
-			}
-
-			description, err := cmd.Flags().GetString(cli.FlagDescription)
-			if err != nil {
-				return err
-			}
-
-			depositStr, err := cmd.Flags().GetString(cli.FlagDeposit)
-			if err != nil {
-				return err
-			}
-
-			deposit, err := sdk.ParseCoinsNormalized(depositStr)
-			if err != nil {
-				return err
-			}
-
-			from := clientCtx.GetFromAddress()
-
-			vestingAddress := args[0]
-
-			var destinationAddr string
-			if len(args) == 2 {
-				destinationAddr = args[1]
-			}
-
-			// check that args[0] is valid address in ValidateBasic()
-			content := types.NewClawbackProposal(title, description, vestingAddress, destinationAddr)
-
-			msg, err := govv1beta1.NewMsgSubmitProposal(content, deposit, from)
-			if err != nil {
-				return err
-			}
-
-			if err := msg.ValidateBasic(); err != nil {
-				return err
-			}
-
-			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
-		},
-	}
-
-	cmd.Flags().String(cli.FlagTitle, "", "title of proposal")
-	cmd.Flags().String(cli.FlagDescription, "", "description of proposal")
-	cmd.Flags().String(cli.FlagDeposit, "1aevmos", "deposit of proposal")
-
-	if err := cmd.MarkFlagRequired(cli.FlagTitle); err != nil {
-		panic(err)
-	}
-	if err := cmd.MarkFlagRequired(cli.FlagDescription); err != nil {
-		panic(err)
-	}
-	if err := cmd.MarkFlagRequired(cli.FlagDeposit); err != nil {
-		panic(err)
-	}
 	return cmd
 }

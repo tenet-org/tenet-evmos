@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"time"
 
-	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -23,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func (suite *KeeperTestSuite) SetupApp(chainID string) {
+func (suite *KeeperTestSuite) SetupApp() {
 	t := suite.T()
 	// account key
 	priv, err := ethsecp256k1.GenerateKey()
@@ -38,7 +37,7 @@ func (suite *KeeperTestSuite) SetupApp(chainID string) {
 	require.NoError(t, err)
 	suite.consAddress = sdk.ConsAddress(privCons.PubKey().Address())
 	header := testutil.NewHeader(
-		1, time.Now().UTC(), chainID, suite.consAddress, nil, nil,
+		1, time.Now().UTC(), "evmos_9001-1", suite.consAddress, nil, nil,
 	)
 	suite.ctx = suite.app.BaseApp.NewContext(false, header)
 	queryHelper := baseapp.NewQueryServerTestHelper(suite.ctx, suite.app.InterfaceRegistry())
@@ -56,8 +55,7 @@ func (suite *KeeperTestSuite) SetupApp(chainID string) {
 
 	stakingParams := suite.app.StakingKeeper.GetParams(suite.ctx)
 	stakingParams.BondDenom = suite.denom
-	err = suite.app.StakingKeeper.SetParams(suite.ctx, stakingParams)
-	require.NoError(t, err)
+	suite.app.StakingKeeper.SetParams(suite.ctx, stakingParams)
 
 	evmParams := suite.app.EvmKeeper.GetParams(suite.ctx)
 	evmParams.EvmDenom = suite.denom
@@ -73,12 +71,12 @@ func (suite *KeeperTestSuite) SetupApp(chainID string) {
 	valAddr := sdk.ValAddress(suite.address.Bytes())
 	validator, err := stakingtypes.NewValidator(valAddr, privCons.PubKey(), stakingtypes.Description{})
 	require.NoError(t, err)
-	validator = stakingkeeper.TestingUpdateValidator(&suite.app.StakingKeeper, suite.ctx, validator, true)
-	err = suite.app.StakingKeeper.Hooks().AfterValidatorCreated(suite.ctx, validator.GetOperator())
+	validator = stakingkeeper.TestingUpdateValidator(suite.app.StakingKeeper, suite.ctx, validator, true)
+	err = suite.app.StakingKeeper.AfterValidatorCreated(suite.ctx, validator.GetOperator())
 	require.NoError(t, err)
 	err = suite.app.StakingKeeper.SetValidatorByConsAddr(suite.ctx, validator)
 	require.NoError(t, err)
-	validators := s.app.StakingKeeper.GetBondedValidatorsByPower(s.ctx)
+	validators := s.app.StakingKeeper.GetValidators(s.ctx, 1)
 	suite.validator = validators[0]
 
 	suite.ethSigner = ethtypes.LatestSignerForChainID(s.app.EvmKeeper.ChainID())
@@ -92,7 +90,7 @@ func (suite *KeeperTestSuite) Commit() {
 // Commit commits a block at a given time.
 func (suite *KeeperTestSuite) CommitAfter(t time.Duration) {
 	var err error
-	suite.ctx, err = testutil.CommitAndCreateNewCtx(suite.ctx, suite.app, t, nil)
+	suite.ctx, err = testutil.Commit(suite.ctx, suite.app, t, nil)
 	suite.Require().NoError(err)
 	queryHelper := baseapp.NewQueryServerTestHelper(suite.ctx, suite.app.InterfaceRegistry())
 
@@ -142,9 +140,9 @@ func registerFee(
 	if res.IsOK() {
 		registerEvent := res.GetEvents()[8]
 		Expect(registerEvent.Type).To(Equal(types.EventTypeRegisterRevenue))
-		Expect(registerEvent.Attributes[0].Key).To(Equal(sdk.AttributeKeySender))
-		Expect(registerEvent.Attributes[1].Key).To(Equal(types.AttributeKeyContract))
-		Expect(registerEvent.Attributes[2].Key).To(Equal(types.AttributeKeyWithdrawerAddress))
+		Expect(string(registerEvent.Attributes[0].Key)).To(Equal(sdk.AttributeKeySender))
+		Expect(string(registerEvent.Attributes[1].Key)).To(Equal(types.AttributeKeyContract))
+		Expect(string(registerEvent.Attributes[2].Key)).To(Equal(types.AttributeKeyWithdrawerAddress))
 	}
 	return res
 }
@@ -155,10 +153,9 @@ func contractInteract(
 	gasPrice *big.Int,
 	gasFeeCap *big.Int,
 	gasTipCap *big.Int,
-	data []byte,
 	accesses *ethtypes.AccessList,
 ) abci.ResponseDeliverTx {
-	msgEthereumTx := buildEthTx(priv, contractAddr, gasPrice, gasFeeCap, gasTipCap, data, accesses)
+	msgEthereumTx := buildEthTx(priv, contractAddr, gasPrice, gasFeeCap, gasTipCap, accesses)
 	res, err := testutil.DeliverEthTx(s.app, priv, msgEthereumTx)
 	Expect(err).To(BeNil())
 	Expect(res.IsOK()).To(Equal(true), res.GetLog())
@@ -171,13 +168,13 @@ func buildEthTx(
 	gasPrice *big.Int,
 	gasFeeCap *big.Int,
 	gasTipCap *big.Int,
-	data []byte,
 	accesses *ethtypes.AccessList,
 ) *evmtypes.MsgEthereumTx {
 	chainID := s.app.EvmKeeper.ChainID()
 	from := common.BytesToAddress(priv.PubKey().Address().Bytes())
 	nonce := getNonce(from.Bytes())
-	gasLimit := uint64(10000000)
+	data := make([]byte, 0)
+	gasLimit := uint64(100000)
 	ethTxParams := evmtypes.EvmTxArgs{
 		ChainID:   chainID,
 		Nonce:     nonce,

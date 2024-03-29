@@ -1,17 +1,29 @@
-// Copyright Tharsis Labs Ltd.(Evmos)
-// SPDX-License-Identifier:ENCL-1.0(https://github.com/evmos/evmos/blob/main/LICENSE)
+// Copyright 2022 Evmos Foundation
+// This file is part of the Evmos Network packages.
+//
+// Evmos is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The Evmos packages are distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the Evmos packages. If not, see https://github.com/evmos/evmos/blob/main/LICENSE
 
 package types
 
 import (
 	"bytes"
-	"time"
-
 	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	sdkvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	"github.com/ethereum/go-ethereum/common"
+	"time"
 )
 
 var (
@@ -32,41 +44,29 @@ const (
 
 // NewMsgCreateClawbackVestingAccount creates new instance of MsgCreateClawbackVestingAccount
 func NewMsgCreateClawbackVestingAccount(
-	funderAddr sdk.AccAddress,
-	vestingAddr sdk.AccAddress,
-	enableGovClawback bool,
+	fromAddr, toAddr sdk.AccAddress,
 ) *MsgCreateClawbackVestingAccount {
 	return &MsgCreateClawbackVestingAccount{
-		FunderAddress:     funderAddr.String(),
-		VestingAddress:    vestingAddr.String(),
-		EnableGovClawback: enableGovClawback,
+		FunderAddress:     fromAddr.String(),
+		VestingAddress:    toAddr.String(),
+		EnableGovClawback: false,
 	}
 }
 
 // Route returns the name of the module
 func (msg MsgCreateClawbackVestingAccount) Route() string { return RouterKey }
 
-// Type returns the message type for a MsgCreateClawbackVestingAccount
+// Type returns the the action
 func (msg MsgCreateClawbackVestingAccount) Type() string { return TypeMsgCreateClawbackVestingAccount }
 
 // ValidateBasic runs stateless checks on the message
 func (msg MsgCreateClawbackVestingAccount) ValidateBasic() error {
-	funderAcc, err := sdk.AccAddressFromBech32(msg.FunderAddress)
-	if err != nil {
-		return errorsmod.Wrapf(err, "invalid funder address")
+	if _, err := sdk.AccAddressFromBech32(msg.FunderAddress); err != nil {
+		return errorsmod.Wrapf(err, "invalid from address")
 	}
 
-	if equal := bytes.Compare(funderAcc.Bytes(), common.Address{}.Bytes()); equal == 0 {
-		return errorsmod.Wrapf(errortypes.ErrInvalidAddress, "funder address cannot be the zero address")
-	}
-
-	vestingAcc, err := sdk.AccAddressFromBech32(msg.VestingAddress)
-	if err != nil {
-		return errorsmod.Wrapf(err, "invalid vesting address")
-	}
-
-	if equal := bytes.Compare(vestingAcc.Bytes(), common.Address{}.Bytes()); equal == 0 {
-		return errorsmod.Wrapf(errortypes.ErrInvalidAddress, "vesting address cannot be the zero address")
+	if _, err := sdk.AccAddressFromBech32(msg.VestingAddress); err != nil {
+		return errorsmod.Wrapf(err, "invalid to address")
 	}
 
 	return nil
@@ -150,7 +150,7 @@ func (msg MsgFundVestingAccount) ValidateBasic() error {
 
 	// If both schedules are present, they must describe the same total amount.
 	// IsEqual can panic, so use (a == b) <=> (a <= b && b <= a).
-	if len(msg.LockupPeriods) > 0 && len(msg.VestingPeriods) > 0 && !CoinEq(lockupCoins, vestingCoins) {
+	if len(msg.LockupPeriods) > 0 && len(msg.VestingPeriods) > 0 && !coinEq(lockupCoins, vestingCoins) {
 		return errorsmod.Wrapf(errortypes.ErrInvalidRequest, "vesting and lockup schedules must have same total coins")
 	}
 
@@ -175,7 +175,6 @@ func NewMsgClawback(funder, addr, dest sdk.AccAddress) *MsgClawback {
 	if dest != nil {
 		destString = dest.String()
 	}
-
 	return &MsgClawback{
 		FunderAddress:  funder.String(),
 		AccountAddress: addr.String(),
@@ -240,13 +239,8 @@ func (msg MsgUpdateVestingFunder) ValidateBasic() error {
 		return errorsmod.Wrapf(err, "invalid funder address")
 	}
 
-	newFunderAddr, err := sdk.AccAddressFromBech32(msg.GetNewFunderAddress())
-	if err != nil {
+	if _, err := sdk.AccAddressFromBech32(msg.GetNewFunderAddress()); err != nil {
 		return errorsmod.Wrapf(err, "invalid new funder address")
-	}
-
-	if equal := bytes.Compare(newFunderAddr.Bytes(), common.Address{}.Bytes()); equal == 0 {
-		return errorsmod.Wrapf(errortypes.ErrInvalidAddress, "new funder address cannot be the zero address")
 	}
 
 	// New funder address can not be equal to current funder address

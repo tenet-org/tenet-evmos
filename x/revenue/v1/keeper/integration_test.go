@@ -1,17 +1,12 @@
 package keeper_test
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/evmos/evmos/v15/precompiles/staking"
-
-	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -34,7 +29,6 @@ var factoryCode = "603061000e60003960306000f3007f600661000e60003960066000f300612
 // Creates the above factory
 var doubleFactoryCode = "605461000e60003960546000f3007f603061000e60003960306000f3007f600661000e60003960066000f3006122226000527f600055000000000000000000000000600052601460006000f060006000a10000602052603e60006000f060006000a1"
 
-//nolint:goconst
 var _ = Describe("Fee distribution:", Ordered, func() {
 	feeCollectorAddr := s.app.AccountKeeper.GetModuleAddress(authtypes.FeeCollectorName)
 	denom := s.denom
@@ -156,8 +150,7 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 		It("should not distribute tx fees for previously registered contracts", func() {
 			preBalance := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
 			gasPrice := big.NewInt(2000000000)
-			data := make([]byte, 0)
-			contractInteract(userKey, &registeredContract, gasPrice, nil, nil, data, nil)
+			contractInteract(userKey, &registeredContract, gasPrice, nil, nil, nil)
 			s.Commit()
 
 			balance := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
@@ -235,8 +228,7 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 				It("should result in sending the tx fees to the deployer address", func() {
 					preBalance := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
 					gasPrice := big.NewInt(2000000000)
-					data := make([]byte, 0)
-					res := contractInteract(userKey, &contractAddress, gasPrice, nil, nil, data, nil)
+					res := contractInteract(userKey, &contractAddress, gasPrice, nil, nil, nil)
 					s.Commit()
 
 					developerCoins, _ := calculateFees(denom, params, res, gasPrice)
@@ -322,7 +314,7 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 					Expect(res.IsOK()).To(Equal(true), "contract registration failed: "+res.GetLog())
 
 					registerEvent := res.GetEvents()[8]
-					Expect(registerEvent.Attributes[2].Value).ToNot(Equal(deployerAddress.String()))
+					Expect(string(registerEvent.Attributes[2].Value)).ToNot(Equal(deployerAddress.String()))
 
 					fee, isRegistered := s.app.RevenueKeeper.GetRevenue(s.ctx, contractAddress)
 					Expect(isRegistered).To(Equal(true))
@@ -334,8 +326,7 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 				It("should send the fees to the withdraw address", func() {
 					preBalance := s.app.BankKeeper.GetBalance(s.ctx, withdrawerAddress, denom)
 					gasPrice := big.NewInt(2000000000)
-					data := make([]byte, 0)
-					res := contractInteract(userKey, &contractAddress, gasPrice, nil, nil, data, nil)
+					res := contractInteract(userKey, &contractAddress, gasPrice, nil, nil, nil)
 					s.Commit()
 
 					developerCoins, _ := calculateFees(denom, params, res, gasPrice)
@@ -379,8 +370,7 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 					preFeeColectorBalance := s.app.BankKeeper.GetBalance(s.ctx, feeCollectorAddr, denom)
 					preBalance := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
 					gasPrice := big.NewInt(2000000000)
-					data := make([]byte, 0)
-					res := contractInteract(userKey, &contractAddress, gasPrice, nil, nil, data, nil)
+					res := contractInteract(userKey, &contractAddress, gasPrice, nil, nil, nil)
 
 					developerCoins, validatorCoins := calculateFees(denom, params, res, gasPrice)
 					feeColectorBalance := s.app.BankKeeper.GetBalance(s.ctx, feeCollectorAddr, denom)
@@ -398,14 +388,12 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 					preBalance := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
 					gasTipCap := big.NewInt(10000)
 					gasFeeCap := new(big.Int).Add(s.app.FeeMarketKeeper.GetBaseFee(s.ctx), gasTipCap)
-					data := make([]byte, 0)
 					res := contractInteract(
 						userKey,
 						&contractAddress,
 						nil,
 						gasFeeCap,
 						gasTipCap,
-						data,
 						&ethtypes.AccessList{},
 					)
 
@@ -430,14 +418,12 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 					preBalance := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
 					gasTipCap := big.NewInt(10000)
 					gasFeeCap := new(big.Int).Add(s.app.FeeMarketKeeper.GetBaseFee(s.ctx), gasTipCap)
-					data := make([]byte, 0)
 					res := contractInteract(
 						userKey,
 						&contractAddress,
 						nil,
 						gasFeeCap,
 						gasTipCap,
-						data,
 						&ethtypes.AccessList{},
 					)
 
@@ -462,14 +448,12 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 					preBalance := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
 					gasTipCap := big.NewInt(10000)
 					gasFeeCap := new(big.Int).Add(s.app.FeeMarketKeeper.GetBaseFee(s.ctx), gasTipCap)
-					data := make([]byte, 0)
 					res := contractInteract(
 						userKey,
 						&contractAddress,
 						nil,
 						gasFeeCap,
 						gasTipCap,
-						data,
 						&ethtypes.AccessList{},
 					)
 
@@ -478,47 +462,6 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 					balance := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
 					Expect(balance).To(Equal(preBalance.Add(developerCoins)))
 					Expect(feeColectorBalance).To(Equal(preFeeColectorBalance))
-					s.Commit()
-				})
-			})
-		})
-
-		Describe("Funding community pool from precompiled contract calls", func() {
-			Context("calling a precompiled registered contract with 100/0 community pool revenue", func() {
-				var params types.Params
-
-				BeforeEach(func() {
-					params = s.app.RevenueKeeper.GetParams(s.ctx)
-					params.DeveloperShares = sdk.NewDec(1)
-					err := s.app.RevenueKeeper.SetParams(s.ctx, params)
-					if err != nil {
-						fmt.Println(err)
-						return
-					}
-				})
-
-				It("should transfer all tx fees to the community pool", func() {
-					communityPoolBefore := s.app.DistrKeeper.GetFeePoolCommunityCoins(s.ctx)
-					contractAddress := common.HexToAddress("0x0000000000000000000000000000000000000800")
-					gasTipCap := big.NewInt(100000)
-					gasFeeCap := new(big.Int).Add(s.app.FeeMarketKeeper.GetBaseFee(s.ctx), gasTipCap)
-					stakingPrecompile := s.app.EvmKeeper.Precompiles(contractAddress)[contractAddress].(*staking.Precompile)
-					data, err := stakingPrecompile.ABI.Pack("delegate", common.BytesToAddress(userAddress), s.validator.OperatorAddress, big.NewInt(1e18))
-					Expect(err).To(BeNil())
-					res := contractInteract(
-						userKey,
-						&contractAddress,
-						nil,
-						gasFeeCap,
-						gasTipCap,
-						data,
-						&ethtypes.AccessList{},
-					)
-					Expect(res.IsOK()).To(BeTrue())
-					communityCoins, _ := calculateFees(denom, params, res, gasFeeCap)
-					communityCoinsDec := sdk.NewDecCoinFromCoin(communityCoins)
-					communityPoolAfter := s.app.DistrKeeper.GetFeePoolCommunityCoins(s.ctx)
-					Expect(communityPoolAfter).To(Equal(communityPoolBefore.Add(communityCoinsDec)))
 					s.Commit()
 				})
 			})
@@ -582,8 +525,7 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 					preBalanceD := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
 					preBalanceW := s.app.BankKeeper.GetBalance(s.ctx, withdrawerAddress, denom)
 					gasPrice := big.NewInt(2000000000)
-					data := make([]byte, 0)
-					res := contractInteract(userKey, &contractAddress, gasPrice, nil, nil, data, nil)
+					res := contractInteract(userKey, &contractAddress, gasPrice, nil, nil, nil)
 					s.Commit()
 
 					developerCoins, _ := calculateFees(denom, params, res, gasPrice)
@@ -712,8 +654,8 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 				It("should no longer distribute fees to the contract deployer", func() {
 					preBalanceD := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
 					gasPrice := big.NewInt(2000000000)
-					data := make([]byte, 0)
-					contractInteract(userKey, &contractAddress, gasPrice, nil, nil, data, nil)
+
+					contractInteract(userKey, &contractAddress, gasPrice, nil, nil, nil)
 					s.Commit()
 
 					balanceD := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
@@ -781,8 +723,7 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 
 					// User interaction with registered contract
 					gasPrice := big.NewInt(2000000000)
-					data := make([]byte, 0)
-					res := contractInteract(userKey, &contractAddress, gasPrice, nil, nil, data, nil)
+					res := contractInteract(userKey, &contractAddress, gasPrice, nil, nil, nil)
 
 					developerCoins, _ := calculateFees(denom, params, res, gasPrice)
 					balance := s.app.BankKeeper.GetBalance(s.ctx, deployerAddress, denom)
@@ -796,14 +737,12 @@ var _ = Describe("Fee distribution:", Ordered, func() {
 					// User interaction with registered contract
 					gasTipCap := big.NewInt(10000)
 					gasFeeCap := new(big.Int).Add(s.app.FeeMarketKeeper.GetBaseFee(s.ctx), gasTipCap)
-					data := make([]byte, 0)
 					res := contractInteract(
 						userKey,
 						&contractAddress,
 						nil,
 						gasFeeCap,
 						gasTipCap,
-						data,
 						&ethtypes.AccessList{},
 					)
 

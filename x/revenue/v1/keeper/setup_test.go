@@ -4,10 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
-	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/gomega"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -17,7 +14,6 @@ import (
 
 	"github.com/evmos/evmos/v15/app"
 	utiltx "github.com/evmos/evmos/v15/testutil/tx"
-	"github.com/evmos/evmos/v15/utils"
 	evm "github.com/evmos/evmos/v15/x/evm/types"
 	feemarkettypes "github.com/evmos/evmos/v15/x/feemarket/types"
 	"github.com/evmos/evmos/v15/x/revenue/v1/types"
@@ -59,7 +55,6 @@ func TestKeeperTestSuite(t *testing.T) {
 }
 
 func (suite *KeeperTestSuite) SetupTest() {
-	chainID := utils.TestnetChainID + "-1"
-	suite.app = app.Setup(false, feemarkettypes.DefaultGenesisState(), chainID)
-	suite.SetupApp(chainID)
+	suite.app = app.Setup(false, feemarkettypes.DefaultGenesisState())
+	suite.SetupApp()
 }

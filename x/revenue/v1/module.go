@@ -1,14 +1,26 @@
-// Copyright Tharsis Labs Ltd.(Evmos)
-// SPDX-License-Identifier:LGPL-3.0-only
+// Copyright 2022 Evmos Foundation
+// This file is part of the Evmos Network packages.
+//
+// Evmos is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The Evmos packages are distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the Evmos packages. If not, see https://github.com/evmos/evmos/blob/main/LICENSE
 
 package revenue
 
 import (
 	"context"
+	errorsmod "cosmossdk.io/errors"
 	"encoding/json"
 	"fmt"
-
-	errorsmod "cosmossdk.io/errors"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -26,9 +38,6 @@ import (
 	"github.com/evmos/evmos/v15/x/revenue/v1/keeper"
 	"github.com/evmos/evmos/v15/x/revenue/v1/types"
 )
-
-// consensusVersion defines the current x/v1/revenue module consensus version.
-const consensusVersion = 2
 
 // type check to ensure the interface is properly implemented
 var (
@@ -53,7 +62,7 @@ func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 
 // ConsensusVersion returns the consensus state-breaking version for the module.
 func (AppModuleBasic) ConsensusVersion() uint64 {
-	return consensusVersion
+	return 2
 }
 
 // RegisterInterfaces registers interfaces and implementations of the fees
@@ -151,6 +160,16 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	}
 }
 
+// BeginBlock executes all ABCI BeginBlock logic respective to the fees module.
+func (am AppModule) BeginBlock(_ sdk.Context, _ abci.RequestBeginBlock) {
+}
+
+// EndBlock executes all ABCI EndBlock logic respective to the fees module. It
+// returns no validator updates.
+func (am AppModule) EndBlock(_ sdk.Context, _ abci.RequestEndBlock) []abci.ValidatorUpdate {
+	return []abci.ValidatorUpdate{}
+}
+
 // InitGenesis performs the fees module's genesis initialization. It returns
 // no validator updates.
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {
@@ -173,6 +192,11 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 
 // GenerateGenesisState creates a randomized GenState of the fees module.
 func (am AppModule) GenerateGenesisState(_ *module.SimulationState) {
+}
+
+// ProposalContents returns content functions for governance proposals.
+func (am AppModule) ProposalContents(_ module.SimulationState) []simtypes.WeightedProposalContent {
+	return []simtypes.WeightedProposalContent{}
 }
 
 // RegisterStoreDecoder registers a decoder for fees module's types.

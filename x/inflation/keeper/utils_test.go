@@ -6,7 +6,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/evmos/evmos/v15/app"
 	"github.com/evmos/evmos/v15/testutil"
-	utils "github.com/evmos/evmos/v15/utils"
 	epochstypes "github.com/evmos/evmos/v15/x/epochs/types"
 	evm "github.com/evmos/evmos/v15/x/evm/types"
 	"github.com/evmos/evmos/v15/x/inflation/types"
@@ -17,13 +16,11 @@ func (suite *KeeperTestSuite) DoSetupTest() {
 	checkTx := false
 
 	// init app
-	chainID := utils.MainnetChainID + "-1"
-	suite.app = app.Setup(checkTx, nil, chainID)
+	suite.app = app.Setup(checkTx, nil)
 
 	// setup context
-	// use same
 	header := testutil.NewHeader(
-		1, time.Now().UTC(), chainID, suite.consAddress, nil, nil,
+		1, time.Now().UTC(), "evmos_9001-1", suite.consAddress, nil, nil,
 	)
 	suite.ctx = suite.app.BaseApp.NewContext(checkTx, header)
 
@@ -49,7 +46,7 @@ func (suite *KeeperTestSuite) Commit() {
 
 func (suite *KeeperTestSuite) CommitAfter(t time.Duration) {
 	var err error
-	suite.ctx, err = testutil.CommitAndCreateNewCtx(suite.ctx, suite.app, t, nil)
+	suite.ctx, err = testutil.Commit(suite.ctx, suite.app, t, nil)
 	suite.Require().NoError(err)
 	queryHelper := baseapp.NewQueryServerTestHelper(suite.ctx, suite.app.InterfaceRegistry())
 	evm.RegisterQueryServer(queryHelper, suite.app.EvmKeeper)

@@ -168,7 +168,7 @@ func (suite *VestingAccountTestSuite) TestGetVestedVestingLockedCoins() {
 			"all coins vested at the end of the vesting schedule",
 			endTime,
 			origCoins,
-			sdk.Coins{},
+			nil,
 			sdk.NewCoins(),
 		},
 		{
@@ -210,7 +210,7 @@ func (suite *VestingAccountTestSuite) TestGetVestedVestingLockedCoins() {
 			"100 percent of coins vested",
 			now.Add(48 * time.Hour),
 			origCoins,
-			sdk.Coins{},
+			nil,
 			sdk.NewCoins(),
 		},
 	}
@@ -253,7 +253,7 @@ func (suite *VestingAccountTestSuite) TestGetVestedUnvestedLockedOnly() {
 			endTime,
 			origCoins,
 			sdk.Coins{},
-			sdk.Coins{},
+			nil,
 		},
 		{
 			"no coins vested during first vesting period",
@@ -274,28 +274,28 @@ func (suite *VestingAccountTestSuite) TestGetVestedUnvestedLockedOnly() {
 			now.Add(16 * time.Hour),
 			sdk.Coins{sdk.NewInt64Coin(feeDenom, 500), sdk.NewInt64Coin(stakeDenom, 50)},
 			sdk.Coins{sdk.NewInt64Coin(feeDenom, 500), sdk.NewInt64Coin(stakeDenom, 50)},
-			sdk.Coins{},
+			nil,
 		},
 		{
 			"period 2 coins don't vest until period is over",
 			now.Add(17 * time.Hour),
 			sdk.Coins{sdk.NewInt64Coin(feeDenom, 500), sdk.NewInt64Coin(stakeDenom, 50)},
 			sdk.Coins{sdk.NewInt64Coin(feeDenom, 500), sdk.NewInt64Coin(stakeDenom, 50)},
-			sdk.Coins{},
+			nil,
 		},
 		{
 			"75 percent of coins vested after period 2",
 			now.Add(18 * time.Hour),
 			sdk.Coins{sdk.NewInt64Coin(feeDenom, 750), sdk.NewInt64Coin(stakeDenom, 75)},
 			sdk.Coins{sdk.NewInt64Coin(feeDenom, 250), sdk.NewInt64Coin(stakeDenom, 25)},
-			sdk.Coins{},
+			nil,
 		},
 		{
 			"100 percent of coins vested",
 			now.Add(48 * time.Hour),
 			origCoins,
 			sdk.Coins{},
-			sdk.Coins{},
+			nil,
 		},
 	}
 
@@ -336,7 +336,7 @@ func (suite *VestingAccountTestSuite) TestTrackDelegationUndelegation() {
 			func(va *types.ClawbackVestingAccount) {
 				va.TrackUndelegation(origCoins)
 			},
-			sdk.Coins{},
+			nil,
 			nil,
 			false,
 			false,
@@ -352,7 +352,7 @@ func (suite *VestingAccountTestSuite) TestTrackDelegationUndelegation() {
 				va.TrackUndelegation(origCoins)
 			},
 			nil,
-			sdk.Coins{},
+			nil,
 			false,
 			false,
 		},
@@ -366,7 +366,7 @@ func (suite *VestingAccountTestSuite) TestTrackDelegationUndelegation() {
 			func(va *types.ClawbackVestingAccount) {
 				va.TrackUndelegation(vestingPeriods[0].Amount)
 			},
-			sdk.Coins{},
+			nil,
 			nil,
 			false,
 			false,
@@ -381,8 +381,8 @@ func (suite *VestingAccountTestSuite) TestTrackDelegationUndelegation() {
 			func(va *types.ClawbackVestingAccount) {
 				va.TrackUndelegation(vestingPeriods[0].Amount)
 			},
-			sdk.Coins{},
-			sdk.Coins{},
+			nil,
+			nil,
 			true,
 			false,
 		},
@@ -396,8 +396,8 @@ func (suite *VestingAccountTestSuite) TestTrackDelegationUndelegation() {
 			func(va *types.ClawbackVestingAccount) {
 				va.TrackUndelegation(sdk.Coins{sdk.NewInt64Coin(stakeDenom, 0)})
 			},
-			sdk.Coins{},
-			sdk.Coins{},
+			nil,
+			nil,
 			false,
 			true,
 		},
@@ -430,7 +430,7 @@ func (suite *VestingAccountTestSuite) TestTrackDelegationUndelegation() {
 				va.TrackUndelegation(sdk.Coins{sdk.NewInt64Coin(stakeDenom, 50)})
 			},
 			sdk.Coins{sdk.NewInt64Coin(stakeDenom, 25)},
-			sdk.Coins{},
+			nil,
 			false,
 			false,
 		},
@@ -490,26 +490,26 @@ func (suite *VestingAccountTestSuite) TestComputeClawback() {
 		expVestingPeriods  sdkvesting.Periods
 	}{
 		{
-			"should claw back everything if clawed back before start time",
+			"should no-op if clawed back before start time",
 			now.Add(-time.Hour).Unix(),
-			origCoins,
 			sdk.Coins{},
-			sdkvesting.Periods{},
-			sdkvesting.Periods{},
+			origCoins,
+			lockupPeriods,
+			vestingPeriods,
 		},
 		{
 			"should clawback everything before any vesting or lockup period passes",
 			now.Unix(),
 			sdk.NewCoins(fee(1000), stake(100)),
-			sdk.Coins{},
+			sdk.NewCoins(),
 			sdkvesting.Periods{},
 			sdkvesting.Periods{},
 		},
 		{
 			"it should clawback after two vesting periods and before the first lock period",
 			now.Add(11 * time.Hour).Unix(),
-			sdk.Coins{fee(600), stake(50)}, // last 3 periods are still vesting
-			sdk.Coins{fee(400), stake(50)}, // first 2 periods
+			sdk.NewCoins(fee(600), stake(50)), // last 3 periods are still vesting
+			sdk.NewCoins(fee(400), stake(50)), // first 2 periods
 			sdkvesting.Periods{{Length: int64(12 * 3600), Amount: sdk.NewCoins(fee(400), stake(50))}},
 			vestingPeriods[:2],
 		},
@@ -517,7 +517,7 @@ func (suite *VestingAccountTestSuite) TestComputeClawback() {
 			"should clawback zero coins after all vesting and locked periods",
 			now.Add(23 * time.Hour).Unix(),
 			sdk.Coins{},
-			sdk.Coins{fee(1000), stake(100)},
+			sdk.NewCoins(fee(1000), stake(100)),
 			lockupPeriods,
 			vestingPeriods,
 		},
