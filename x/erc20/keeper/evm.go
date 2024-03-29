@@ -30,11 +30,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/evmos/evmos/v12/server/config"
-	evmtypes "github.com/evmos/evmos/v12/x/evm/types"
+	"github.com/evmos/evmos/v15/server/config"
+	evmtypes "github.com/evmos/evmos/v15/x/evm/types"
 
-	"github.com/evmos/evmos/v12/contracts"
-	"github.com/evmos/evmos/v12/x/erc20/types"
+	"github.com/evmos/evmos/v15/contracts"
+	"github.com/evmos/evmos/v15/x/erc20/types"
 )
 
 const EvmContextKey = "evm"

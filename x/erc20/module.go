@@ -32,9 +32,9 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 
-	"github.com/evmos/evmos/v12/x/erc20/client/cli"
-	"github.com/evmos/evmos/v12/x/erc20/keeper"
-	"github.com/evmos/evmos/v12/x/erc20/types"
+	"github.com/evmos/evmos/v15/x/erc20/client/cli"
+	"github.com/evmos/evmos/v15/x/erc20/keeper"
+	"github.com/evmos/evmos/v15/x/erc20/types"
 )
 
 // type check to ensure the interface is properly implemented

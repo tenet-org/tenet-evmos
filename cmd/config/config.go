@@ -19,7 +19,7 @@ package config
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/evmos/evmos/v12/types"
+	"github.com/evmos/evmos/v15/types"
 )
 
 const (

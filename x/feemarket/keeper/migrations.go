@@ -16,7 +16,7 @@
 package keeper
 
 import (
-	"github.com/evmos/evmos/v12/x/feemarket/types"
+	"github.com/evmos/evmos/v15/x/feemarket/types"
 )
 
 // Migrator is a struct for handling in-place store migrations.

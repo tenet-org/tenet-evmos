@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/evmos/evmos/v12/rpc/backend"
-	"github.com/evmos/evmos/v12/rpc/types"
+	"github.com/evmos/evmos/v15/rpc/backend"
+	"github.com/evmos/evmos/v15/rpc/types"
 
 	"github.com/cometbft/cometbft/libs/log"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"

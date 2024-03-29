@@ -18,7 +18,7 @@ package types
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/evmos/evmos/v12/types"
+	"github.com/evmos/evmos/v15/types"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -26,7 +26,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/evmos/evmos/v12/utils"
+	"github.com/evmos/evmos/v15/utils"
 )
 
 var (

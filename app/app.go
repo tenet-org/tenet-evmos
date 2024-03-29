@@ -130,34 +130,34 @@ import (
 	icahosttypes "github.com/cosmos/ibc-go/v7/modules/apps/27-interchain-accounts/host/types"
 	icatypes "github.com/cosmos/ibc-go/v7/modules/apps/27-interchain-accounts/types"
 
-	ethante "github.com/evmos/evmos/v12/app/ante/evm"
-	"github.com/evmos/evmos/v12/encoding"
-	"github.com/evmos/evmos/v12/ethereum/eip712"
-	srvflags "github.com/evmos/evmos/v12/server/flags"
-	evmostypes "github.com/evmos/evmos/v12/types"
-	"github.com/evmos/evmos/v12/x/evm"
-	evmkeeper "github.com/evmos/evmos/v12/x/evm/keeper"
-	evmtypes "github.com/evmos/evmos/v12/x/evm/types"
-	"github.com/evmos/evmos/v12/x/feemarket"
-	feemarketkeeper "github.com/evmos/evmos/v12/x/feemarket/keeper"
-	feemarkettypes "github.com/evmos/evmos/v12/x/feemarket/types"
+	ethante "github.com/evmos/evmos/v15/app/ante/evm"
+	"github.com/evmos/evmos/v15/encoding"
+	"github.com/evmos/evmos/v15/ethereum/eip712"
+	srvflags "github.com/evmos/evmos/v15/server/flags"
+	evmostypes "github.com/evmos/evmos/v15/types"
+	"github.com/evmos/evmos/v15/x/evm"
+	evmkeeper "github.com/evmos/evmos/v15/x/evm/keeper"
+	evmtypes "github.com/evmos/evmos/v15/x/evm/types"
+	"github.com/evmos/evmos/v15/x/feemarket"
+	feemarketkeeper "github.com/evmos/evmos/v15/x/feemarket/keeper"
+	feemarkettypes "github.com/evmos/evmos/v15/x/feemarket/types"
 
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	consensusparamtypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 
 	// unnamed import of statik for swagger UI support
-	_ "github.com/evmos/evmos/v12/client/docs/statik"
+	_ "github.com/evmos/evmos/v15/client/docs/statik"
 
-	"github.com/evmos/evmos/v12/app/ante"
+	"github.com/evmos/evmos/v15/app/ante"
 
-	"github.com/evmos/evmos/v12/x/erc20"
-	erc20client "github.com/evmos/evmos/v12/x/erc20/client"
-	erc20keeper "github.com/evmos/evmos/v12/x/erc20/keeper"
-	erc20types "github.com/evmos/evmos/v12/x/erc20/types"
+	"github.com/evmos/evmos/v15/x/erc20"
+	erc20client "github.com/evmos/evmos/v15/x/erc20/client"
+	erc20keeper "github.com/evmos/evmos/v15/x/erc20/keeper"
+	erc20types "github.com/evmos/evmos/v15/x/erc20/types"
 
 	// NOTE: override ICS20 keeper to support IBC transfers of ERC20 tokens
-	"github.com/evmos/evmos/v12/x/ibc/transfer"
-	transferkeeper "github.com/evmos/evmos/v12/x/ibc/transfer/keeper"
+	"github.com/evmos/evmos/v15/x/ibc/transfer"
+	transferkeeper "github.com/evmos/evmos/v15/x/ibc/transfer/keeper"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
@@ -449,10 +449,18 @@ func NewEvmos(
 		app.GetSubspace(feemarkettypes.ModuleName),
 	)
 
+	fundRetriever := func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec) {
+		fundAddress, err := sdk.AccAddressFromBech32("tenet...") // todo: set fund address
+		if err != nil {
+			panic(err)
+		}
+		return fundAddress, sdk.NewDecWithPrec(5, 1) // 50%
+	}
+
 	evmKeeper := evmkeeper.NewKeeper(
 		appCodec, keys[evmtypes.StoreKey], tkeys[evmtypes.TransientKey], authtypes.NewModuleAddress(govtypes.ModuleName),
 		app.AccountKeeper, app.BankKeeper, stakingKeeper, app.FeeMarketKeeper,
-		tracer, app.GetSubspace(evmtypes.ModuleName),
+		tracer, app.GetSubspace(evmtypes.ModuleName), fundRetriever,
 	)
 
 	app.EvmKeeper = evmKeeper
@@ -746,7 +754,7 @@ func NewEvmos(
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))
 
-	app.setAnteHandler(encodingConfig.TxConfig, maxGasWanted)
+	app.setAnteHandler(encodingConfig.TxConfig, maxGasWanted, fundRetriever)
 	app.setPostHandler()
 	app.SetEndBlocker(app.EndBlocker)
 	app.setupUpgradeHandlers()
@@ -775,15 +783,7 @@ func NewEvmos(
 // Name returns the name of the App
 func (app *Evmos) Name() string { return app.BaseApp.Name() }
 
-func (app *Evmos) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
-	fundRetriever := func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec) {
-		fundAddress, err := sdk.AccAddressFromBech32("tenet...") // todo: set fund address
-		if err != nil {
-			panic(err)
-		}
-		return fundAddress, sdk.NewDecWithPrec(5, 1) // 50%
-	}
-
+func (app *Evmos) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64, fundRetriever func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec)) {
 	options := ante.HandlerOptions{
 		Cdc:                    app.appCodec,
 		AccountKeeper:          app.AccountKeeper,

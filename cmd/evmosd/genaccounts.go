@@ -33,10 +33,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
-	"github.com/evmos/evmos/v12/types"
-	evmtypes "github.com/evmos/evmos/v12/x/evm/types"
+	"github.com/evmos/evmos/v15/types"
+	evmtypes "github.com/evmos/evmos/v15/x/evm/types"
 
-	evmoskr "github.com/evmos/evmos/v12/crypto/keyring"
+	evmoskr "github.com/evmos/evmos/v15/crypto/keyring"
 )
 
 const (

@@ -9,20 +9,20 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/evmos/evmos/v12/app"
-	"github.com/evmos/evmos/v12/crypto/ethsecp256k1"
-	"github.com/evmos/evmos/v12/encoding"
-	"github.com/evmos/evmos/v12/testutil"
-	utiltx "github.com/evmos/evmos/v12/testutil/tx"
-	"github.com/evmos/evmos/v12/utils"
-	"github.com/evmos/evmos/v12/x/feemarket/types"
+	"github.com/evmos/evmos/v15/app"
+	"github.com/evmos/evmos/v15/crypto/ethsecp256k1"
+	"github.com/evmos/evmos/v15/encoding"
+	"github.com/evmos/evmos/v15/testutil"
+	utiltx "github.com/evmos/evmos/v15/testutil/tx"
+	"github.com/evmos/evmos/v15/utils"
+	"github.com/evmos/evmos/v15/x/feemarket/types"
 
 	"cosmossdk.io/simapp"
 	dbm "github.com/cometbft/cometbft-db"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	evmtypes "github.com/evmos/evmos/v12/x/evm/types"
+	evmtypes "github.com/evmos/evmos/v15/x/evm/types"
 )
 
 var _ = Describe("Feemarket", func() {

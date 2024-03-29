@@ -16,7 +16,7 @@
 package keeper
 
 import (
-	"github.com/evmos/evmos/v12/app/ante/utils"
+	"github.com/evmos/evmos/v15/app/ante/utils"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -29,7 +29,7 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 
-	"github.com/evmos/evmos/v12/x/evm/types"
+	"github.com/evmos/evmos/v15/x/evm/types"
 )
 
 // CheckSenderBalance validates that the tx cost value is positive and that the

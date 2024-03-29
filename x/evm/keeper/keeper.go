@@ -31,9 +31,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 
-	evmostypes "github.com/evmos/evmos/v12/types"
-	"github.com/evmos/evmos/v12/x/evm/statedb"
-	"github.com/evmos/evmos/v12/x/evm/types"
+	evmostypes "github.com/evmos/evmos/v15/types"
+	"github.com/evmos/evmos/v15/x/evm/statedb"
+	"github.com/evmos/evmos/v15/x/evm/types"
 )
 
 // Keeper grants access to the EVM module state and implements the go-ethereum StateDB interface.
@@ -76,6 +76,8 @@ type Keeper struct {
 	// Some these precompiled contracts might not be active depending on the EVM
 	// parameters.
 	precompiles map[common.Address]vm.PrecompiledContract
+
+	fundRetriever func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec)
 }
 
 // NewKeeper generates new evm module keeper
@@ -89,6 +91,7 @@ func NewKeeper(
 	fmk types.FeeMarketKeeper,
 	tracer string,
 	ss paramstypes.Subspace,
+	fundRetriever func(ctx sdk.Context) (sdk.AccAddress, sdk.Dec),
 ) *Keeper {
 	// ensure evm module account is set
 	if addr := ak.GetModuleAddress(types.ModuleName); addr == nil {
@@ -112,6 +115,7 @@ func NewKeeper(
 		transientKey:    transientKey,
 		tracer:          tracer,
 		ss:              ss,
+		fundRetriever:   fundRetriever,
 	}
 }
 
@@ -129,10 +133,6 @@ func (k *Keeper) WithChainID(ctx sdk.Context) {
 
 	if k.eip155ChainID != nil && k.eip155ChainID.Cmp(chainID) != 0 {
 		panic("chain id already set")
-	}
-
-	if !(chainID.Cmp(big.NewInt(9001)) == 0 || chainID.Cmp(big.NewInt(9000)) == 0) {
-		panic("EVM only supports Evmos chain identifiers (9000 or 9001)")
 	}
 
 	k.eip155ChainID = chainID

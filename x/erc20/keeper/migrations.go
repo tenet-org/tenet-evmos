@@ -17,7 +17,7 @@
 package keeper
 
 import (
-	"github.com/evmos/evmos/v12/x/erc20/types"
+	"github.com/evmos/evmos/v15/x/erc20/types"
 )
 
 // Migrator is a struct for handling in-place store migrations.

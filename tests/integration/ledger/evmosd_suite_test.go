@@ -20,11 +20,11 @@ import (
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	"github.com/cometbft/cometbft/version"
-	"github.com/evmos/evmos/v12/app"
-	"github.com/evmos/evmos/v12/crypto/hd"
-	"github.com/evmos/evmos/v12/tests/integration/ledger/mocks"
-	utiltx "github.com/evmos/evmos/v12/testutil/tx"
-	"github.com/evmos/evmos/v12/utils"
+	"github.com/evmos/evmos/v15/app"
+	"github.com/evmos/evmos/v15/crypto/hd"
+	"github.com/evmos/evmos/v15/tests/integration/ledger/mocks"
+	utiltx "github.com/evmos/evmos/v15/testutil/tx"
+	"github.com/evmos/evmos/v15/utils"
 	"github.com/stretchr/testify/suite"
 
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
@@ -32,9 +32,9 @@ import (
 	rpcclientmock "github.com/cometbft/cometbft/rpc/client/mock"
 	cosmosledger "github.com/cosmos/cosmos-sdk/crypto/ledger"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clientkeys "github.com/evmos/evmos/v12/client/keys"
-	evmoskeyring "github.com/evmos/evmos/v12/crypto/keyring"
-	feemarkettypes "github.com/evmos/evmos/v12/x/feemarket/types"
+	clientkeys "github.com/evmos/evmos/v15/client/keys"
+	evmoskeyring "github.com/evmos/evmos/v15/crypto/keyring"
+	feemarkettypes "github.com/evmos/evmos/v15/x/feemarket/types"
 )
 
 var s *LedgerTestSuite
