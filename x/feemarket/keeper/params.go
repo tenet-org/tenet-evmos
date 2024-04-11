@@ -33,6 +33,14 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 		k.cdc.MustUnmarshal(bz, &params)
 	}
 
+	if params.MinGasPrice.IsNil() {
+		params.MinGasPrice = sdk.ZeroDec()
+	}
+
+	if params.MinGasMultiplier.IsNil() {
+		params.MinGasMultiplier = sdk.ZeroDec()
+	}
+
 	return
 }
 
